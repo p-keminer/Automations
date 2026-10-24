@@ -1,0 +1,41 @@
+FAN CONTROL
+
+sudo auto fan --auto    Use native temperature-based fan control.
+sudo auto fan --off     Hold the configured fan GPIO low.
+auto fan --status      Show requested/live mode, CPU temperature and GPIO output.
+auto fan --help        Show command help. Bare auto fan shows status.
+
+This component supports the official Raspberry Pi 4 Case Fan on BCM GPIO14
+(physical pin 8). Power: physical pin 4 (5 V), ground: pin 6. Connect hardware
+only while the Pi is powered off. It does not detect a physically attached fan
+or measure RPM. GPIO HIGH/LOW reports commanded output, not measured rotation.
+
+Select fan-control and auto-cli in the builder. Configure the automatic start
+and stop temperatures there: default on at 60 C, off below 50 C; valid limits
+20 <= off < on <= 80. A configured gpio-fan overlay and reboot are required.
+The Linux Python package python3-libgpiod must provide API version 2 or newer.
+
+AUTO/OFF persists across reboot through the OFF service's enabled state. OFF
+is not a hardware power cutoff: native AUTO can run during early boot, and
+returns if the OFF holder stops or fails. Recovery retries are limited. CPU
+thermal protection remains enabled. There is no forced-on mode. Status reports
+requested/live differences instead of claiming that a failed OFF service is off.
+
+Hardware acceptance of this new component is pending. No automatic service
+start is performed by the source-package installer; the image builder selects
+the initial mode explicitly. Existing systems need the configured image/reboot.
+
+STATUS DETAILS
+CPU usage is the aggregate percentage measured over about 0.2 seconds from
+/proc/stat, not a load average. Missing or inconsistent readings are reported
+as unavailable. Temperature, CPU thermal mode and the configured critical trip
+come from the CPU thermal zone. No throttling condition is inferred.
+
+If fan setup or the GPIO binding is missing, CPU data still appears, but fan
+control is reported as unknown (fault), with a specific diagnostic and nonzero
+exit status. Hints use actual mode and configured temperature thresholds.
+
+The current test Pi uses Python 3.13; available newer bindings require Python
+3.14. Do not install incompatible bindings or upgrade the running Pi for this
+component. Switching requires a consistent new image with libgpiod Python API
+v2. A disabled payload/service installation only permits help/status checks.

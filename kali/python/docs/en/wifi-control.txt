@@ -1,0 +1,54 @@
+auto wifi — external USB Wi-Fi
+
+auto wifi                           Show state, SSID and IP addresses
+sudo auto wifi "My SSID"             Connect/switch; missing password is hidden
+sudo auto wifi "My SSID" --autoconnect-on   Enable saved profile autoconnect
+sudo auto wifi "My SSID" --autoconnect-off  Disable saved profile autoconnect
+sudo auto wifi --off                 Disconnect the selected client adapter
+sudo auto wifi --monitor             Disconnect and use monitor mode
+sudo auto wifi --managed             Return from monitor to client, disconnected
+sudo auto wifi --interface wlan0 "My SSID"
+auto wifi --help
+
+Saved client WLANs default to manual connection. --autoconnect-on grants an
+existing profile a persistent opt-in; --autoconnect-off removes it. No new
+profile is created and saved credentials are retained. An event-driven service
+also sets unapproved new desktop profiles to autoconnect off. No polling timer
+or connection restart. ctrl0, Ethernet, AP and temporary profiles are excluded.
+
+Existing usable NetworkManager credentials are reused. Passwords are never
+command arguments. With several USB adapters, a TTY lists names and hardware
+identities and asks for one number/name; non-interactive use requires --interface.
+sudo auto wifi --status also shows the additional AP's SSID and namespace role.
+ctrl0 and its entire physical radio are protected.
+
+Status separates admin (interface enabled), operational (kernel link state),
+and NetworkManager connection state. admin up alone does not mean connected.
+
+The two --autoconnect-* options change only one existing saved client profile,
+persistently; they need an SSID and do not explicitly connect or disconnect.
+No profile is created. Ambiguous same-SSID profiles are rejected. Foreign/AP,
+advanced-match and unverifiable MAC-bound profiles are not modified. The tool
+verifies the UUID and changed bit; on failure it restores bit and opt-in if the
+profile identity is unchanged. A concurrent change may prevent safe restoration.
+NetworkManager may automatically activate an enabled profile under its own rules.
+These options do not clear the device autoconnect block left by --off. A plain
+SSID still connects manually, preserving the device's runtime autoconnect flag.
+
+--off retains saved profiles and suppresses runtime autoconnect. In monitor
+mode it brings down the selected link. --managed leaves an already managed
+client connection unchanged. These are runtime changes, not boot settings.
+
+A failed change attempts restoration of the previous state/connection. An
+unplugged adapter or unavailable old WLAN may prevent complete restoration.
+No exclusive outgoing route is configured. New hidden or enterprise WLAN
+setup is outside this initial command; use a suitable existing NM profile.
+Shared-radio interfaces cannot be changed. Help/status are read-only.
+
+Examples require an installed wifi-control component and auto-cli dispatcher.
+Live connection/mode acceptance will be performed in the joint hardware test.
+
+The new profile-autoconnect switches require separate live acceptance.
+
+Only persistent system profiles without unsaved/generated flags qualify; temporary
+or vendor profiles are rejected and are never implicitly saved.

@@ -1,0 +1,30 @@
+[Unit]
+Description=Optional Automations Tor client
+After=network.target
+
+[Service]
+Type=simple
+User=auto-tor
+Group=auto-tor
+ExecStart=/usr/bin/tor --defaults-torrc /dev/null -f /usr/local/share/automations/tor/torrc
+StateDirectory=automations-tor
+StateDirectoryMode=0700
+RuntimeDirectory=automations-tor
+RuntimeDirectoryMode=0700
+RuntimeDirectoryPreserve=yes
+Restart=no
+TimeoutStartSec=30
+TimeoutStopSec=20
+KillMode=control-group
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+CapabilityBoundingSet=
+UMask=0077

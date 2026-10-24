@@ -1,0 +1,24 @@
+[Unit]
+Description=Verify and recover the optional guarded Tor client
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/automations/tor --recovery-worker
+TimeoutStartSec=0
+User=root
+Group=root
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/run
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+# ss must verify the sockets of the existing unprivileged DNS helper.
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_DAC_OVERRIDE CAP_DAC_READ_SEARCH CAP_SYS_PTRACE
+UMask=0077

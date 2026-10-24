@@ -1,0 +1,76 @@
+TOR CONTROL
+
+sudo auto tor --on
+  Requires healthy auto share. Enable the separate Tor client for the Pi and
+  shared controllers, keeping local control access. Enables automatic recovery.
+sudo auto tor --off
+  Stop Tor and restore the previously selected share path.
+sudo auto tor --status
+  Observe routing state, interface and current public IP; does not change routes.
+sudo auto tor --rotate
+  Request clean circuits for new connections and report the measured exit IP.
+sudo auto tor --rotate-every 10m
+  Schedule rotation from 30s to 24h using integer s/m/h; also works with --on.
+sudo auto tor --rotation-off
+  Stop the schedule only. Tor remains active. Scheduling defaults to off.
+sudo auto tor --check
+  Download a new exit list, replace the one stored file, then check this IP.
+sudo auto tor --check --ip 1.1.1.1
+  Refresh the list and check this explicit public IP instead of the device IP.
+sudo auto tor --check --status
+  Status and public-IP measurement plus list path; no list download or check.
+auto tor --help
+  English CLI help, no network access. Bare auto tor means --status.
+
+Runtime only: no Tor startup on boot. Share must already have an uplink and
+cannot be switched/stopped while Tor or proxy mode is active. On a transport
+failure Tor restarts automatically. Ordinary Pi/controller Internet traffic
+stays blocked until a verified HTTPS request through Tor confirms recovery.
+Failed verification is retried; there is no direct fallback and no need to
+toggle --off/--on. Local Guacamole, desktop and shell access remain available.
+--status reports recovery; --off cancels recovery and restores the share path.
+Existing external connections may need to reconnect after a daemon failure.
+Only IPv4 TCP is transparently carried. Tor DNS supports A, AAAA and PTR through
+the existing local resolver; DNS-over-TCP upstream, other UDP, ICMP and external
+application IPv6 are blocked. Some applications therefore cannot work in Tor
+mode. No promise that every stream has the same exit.
+
+Rotation uses Tor NEWNYM over a local SAFECOOKIE-authenticated Unix socket.
+It does not restart Tor, change firewall rules or terminate existing connections.
+Ten seconds minimum separate manual/scheduled actions; Tor can further defer or
+ignore a request. Success requires Tor's action event, not just command receipt.
+A different exit IP is NOT guaranteed. Manual rotation prints the measured IP;
+if only that observation fails, the command reports an error while preserving
+the verified active guard and unchanged Tor service. A negative Tor result or
+a changed service, guard or uplink still blocks traffic. Repeating --on while
+already active uses the same observation rule.
+The schedule is silent except for journal errors and runs as auto-tor, not root.
+The schedule survives Tor recovery. It stops with --off or --rotation-off.
+Reboot does not resume Tor, recovery or rotation.
+
+List: /var/lib/automations/tor-exits.json
+Source: https://check.torproject.org/exit-addresses
+IP observation: https://check.torproject.org/api/ip
+Public-IP observation explicitly uses the current IPv4 route.
+All real checks fetch fresh data using verified TLS, without redirect, arbitrary
+URL or old-file fallback. Source time is checked separately from download time:
+newest relay status <=6h, accepted address observations/status <=24h, future
+skew <=5min. The list is an observed IPv4 set; IPv6 checks fail explicitly for
+missing coverage. VERIFIED means membership, NOT LISTED means no match in that
+observed set, not proof that no Tor is used. Status never verifies an old list.
+No complete all-traffic anonymity claim.
+
+Normal HTTPS verification requests use one 40-second total deadline across at most three transport
+attempts. Temporary DNS failures and interrupted/truncated transfers may retry;
+certificate or response-validation failures do not. A stalled attempt can use
+the whole deadline. Deadline errors identify the current DNS/TCP/SOCKS/TLS/HTTP
+phase. A failed measurement remains an error, not a successful Tor verification.
+Separate startup and recovery probes still use 10 seconds each. These probe
+deadlines do not limit ordinary browser downloads or video playback through Tor.
+If another sharing operation holds the common lock, retry the command after it
+finishes; this refusal does not switch off a healthy Tor connection.
+
+Tor uses ordinary circuits with optional Conflux circuit bundling disabled.
+Routing, TLS verification and the HTTPS total deadline are unchanged. This
+setting improved the tested transparent Pi/controller path; exit performance
+still varies and a successful check is not an all-traffic anonymity guarantee.

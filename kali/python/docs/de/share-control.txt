@@ -1,0 +1,89 @@
+auto share - Ein Internetausgang für Pi und Geräte im Steuer-WLAN
+
+sudo auto share --wifi
+  Einen bereits verbundenen externen USB-WLAN-Adapter verwenden.
+sudo auto share --lan
+  Eine bereits verbundene LAN-Schnittstelle verwenden.
+sudo auto share --wifi --to wlan0
+  Den Internetausgang auswählen. Ohne --to werden mehrere Adapter zur
+  interaktiven Auswahl aufgelistet; ohne Terminal ist --to erforderlich.
+sudo auto share --wifi --to wlan0 --from ctrl0,wlan1
+  Steuer-WLAN und zusätzlichen AP auf wlan1 über wlan0 ins Internet freigeben.
+sudo auto share --wifi --to wlan0 --from wlan1
+  Nur den zusätzlichen AP freigeben; der Pi nutzt ebenfalls wlan0. Die lokale
+  Steuerung bleibt erreichbar, Steuergeräte erhalten dabei kein Internet.
+  Ohne --from folgt immer die Auswahl der Quellnetze mit Namen, Nummern und SSID.
+  Einen Namen/eine Nummer oder mehrere Werte durch Kommas getrennt eingeben. Strg+C
+  bricht ab; keine automatische Vorauswahl. Ohne Terminal ist --from nötig.
+sudo auto share --off
+  Freigabe beenden, normale Pi-Routen wiederherstellen. Steuer-WLAN und Uplink bleiben verbunden.
+sudo auto share --status
+  Zustand, ausgewählten Uplink, DNS und vorhandene Schnittstellen anzeigen.
+Der bisherige Schalter --interface bleibt als Kompatibilitätsalias gültig.
+
+auto share --help
+  Befehlshilfe anzeigen. Ohne Option wird der Status angezeigt.
+
+Den Uplink vorher verbinden, zum Beispiel mit auto wifi. Die Freigabe stellt
+selbst keine Verbindung her und trennt diese nicht. IPv4-Adresse, Gateway und
+nutzbare DNS-Server sind nötig. Reine IPv6-Uplinks werden nicht unterstützt;
+NAT64 und DNS64 sind nicht enthalten.
+
+Während der Freigabe nutzen Pi und ausgewählte Clientnetze ausschließlich den ausgewählten
+Uplink. Das gilt auch für UDP/TCP-DNS. Ein eigener lokaler Resolver verwendet die
+DNS-Server dieses Uplinks; pi4 bleibt lokal erreichbar. Verschlüsseltes DNS nutzt
+denselben Ausgang, wird aber nicht umgeleitet. Kein Rückfall auf andere WLAN-
+Adapter oder LAN. Bestehende externe Verbindungen über einen anderen Ausgang
+können abbrechen. Lokaler Steuerzugang und Loopback bleiben beim Wechsel erhalten.
+
+Nach Freigabe der nötigen IPv6-Router-, Nachbar- und DHCP-Nachrichten prüft ein
+zeitlich begrenzter Abruf auf globale IPv6-Adresse und Standardroute. Sind beide
+nutzbar, erhalten Steuergeräte ein privates ULA-Präfix per RA/SLAAC; NAT66 führt
+über den ausgewählten Uplink. Eine Präfixdelegation ist nicht nötig. Findet die
+abgeschlossene Prüfung kein nutzbares IPv6, bleibt IPv6-Internetausgang gesperrt.
+Prüf- oder Einrichtungsfehler brechen ab und werden nicht als fehlende IPv6-
+Unterstützung des Netzes ausgegeben.
+
+Standardmäßig aus, nur bis zum Neustart aktiv. --off stellt gespeicherte Laufzeit-
+Forwardingwerte wieder her und entfernt eigene Routen, Adressen, Resolver und
+Firewallobjekte. Anschließend gilt wieder die normale NetworkManager-Routenwahl.
+Dauerhafte DHCP/AP/NM-Konfiguration bleibt unverändert.
+
+Ein Laufzeit-Wächter prüft alle 30 Sekunden nur den gewählten Ausgang. Änderungen
+an DNS, Adresse, Gateway oder IPv6 werden nach zwei übereinstimmenden Beobachtungen
+nachgeführt. Das ist keine Zeitgrenze für Downloads. Er verbindet keine Adapter,
+wählt keine anderen Quellen und wechselt nicht auf einen alternativen Ausgang.
+DNS-Daten werden ohne Neustart von Share oder Tor nachgeladen. Bestehende, noch
+gültige Verbindungen bleiben am gewählten Ausgang zugelassen. Bei echtem Verlust
+der verwendeten Adresse oder Verbindung können sie trotzdem abbrechen. Ein
+Wechsel der IPv6-Verfügbarkeit kann den eigenen DNS-/RA-Prozess neu starten;
+Steuer-WLAN, Guacamole, Tor und Datenverbindungen werden dafür nicht neu gestartet.
+Ein vorhandenes Steuer-ULA bleibt bis --off lokal erhalten.
+
+Der Wächter startet mit der Freigabe und endet mit --off oder Neustart. Er prüft
+lokale Netzdaten, keine ständigen Internetabrufe. Status und Journal nennen
+Änderungen/Fehler; unbekannte Regeln oder Konfigurationen werden nicht überschrieben.
+Unterbrochene eigene Aktualisierungen werden anhand eines geschützten Zustands
+beim nächsten gesperrten Aufruf fortgesetzt. Keine Garantie für Internetverfügbarkeit.
+
+Der Status trennt administrative, operative und NetworkManager-Linkzustände.
+Aktiviert bedeutet nicht automatisch verbunden. Bei degraded/incomplete den
+Uplink prüfen oder --off ausführen. Bei unvollständiger Rücknahme bleiben Sperre
+und Zustand erhalten. Verwaltete Objekte während der Freigabe nicht verändern.
+
+Änderungen und Status benötigen Root-Rechte zur Firewallprüfung. Mit auto-cli
+installieren. Unterstütztes Pi4-Layout, nobody/nogroup und kompatibles nftables/
+dnsmasq sind nötig. Unbekannte Policyregeln oder Konfiguration werden abgewiesen.
+
+Vor einem manuellen Wechsel des Ausgangs/der Quellen bei aktiviertem Tor zuerst
+Tor ausschalten. Automatisches Nachführen desselben Ausgangs arbeitet auch unter
+Tor, ohne eine funktionierende Tor-Instanz vorsorglich zu sperren oder neu zu
+starten. Der lokale Resolver nutzt dann ausschließlich Tors lokalen DNS-Port;
+nach Tor-Aus wieder die ausgewählten Uplink-Resolver. Die Ausgangssperre besitzt eigene, strikt geprüfte
+Regeln; SSH und lokaler Zugriff bleiben verfügbar. Share bleibt ohne diese
+optionalen Modi eigenständig nutzbar.
+
+Nach Verlust des Gast-APs kann Linux dessen eigene Eingangsregel als abgetrennt
+kennzeichnen. Die Bereinigung entfernt nur diese exakt erkannte eigene Regel,
+wenn die Gast-Schnittstelle wirklich fehlt. Unbekannte/geänderte Regeln bleiben
+gesperrt; dieser Zustand gilt niemals als gesunde Freigabe.

@@ -1,0 +1,147 @@
+{
+  "source": "Linux WSL isolated fresh network namespace; veth carrier down, address flush, carrier up/address re-add; no host networking changed",
+  "states": {
+    "carrier_down": {
+      "routes4": [
+        {
+          "dst": "192.168.1.0/24",
+          "dev": "eth0",
+          "table": "17855",
+          "protocol": "static",
+          "scope": "link",
+          "prefsrc": "192.168.1.2",
+          "metric": 10,
+          "flags": [
+            "linkdown"
+          ]
+        }
+      ],
+      "routes6": [
+        {
+          "dst": "2001:db8:1::/64",
+          "dev": "eth0",
+          "table": "17855",
+          "protocol": "static",
+          "prefsrc": "2001:db8:1::2",
+          "metric": 10,
+          "flags": [
+            "linkdown"
+          ],
+          "pref": "medium"
+        }
+      ],
+      "interface": {
+        "ifname": "eth0",
+        "flags": [
+          "NO-CARRIER",
+          "BROADCAST",
+          "MULTICAST",
+          "UP",
+          "M-DOWN"
+        ],
+        "operstate": "LOWERLAYERDOWN",
+        "addr_info": [
+          {
+            "family": "inet",
+            "local": "192.168.1.2",
+            "prefixlen": 24,
+            "scope": "global",
+            "label": "eth0",
+            "valid_life_time": 4294967295,
+            "preferred_life_time": 4294967295
+          },
+          {
+            "family": "inet6",
+            "local": "2001:db8:1::2",
+            "prefixlen": 64,
+            "scope": "global",
+            "nodad": true,
+            "valid_life_time": 4294967295,
+            "preferred_life_time": 4294967295
+          },
+          {
+            "family": "inet6",
+            "local": "fe80::d0bb:56ff:fe96:a718",
+            "prefixlen": 64,
+            "scope": "link",
+            "tentative": true,
+            "valid_life_time": 4294967295,
+            "preferred_life_time": 4294967295
+          }
+        ]
+      }
+    },
+    "address_removed": {
+      "routes4": [],
+      "routes6": [
+        {
+          "dst": "2001:db8:1::/64",
+          "dev": "eth0",
+          "table": "17855",
+          "protocol": "static",
+          "metric": 10,
+          "flags": [
+            "linkdown"
+          ],
+          "pref": "medium"
+        }
+      ],
+      "interface": {
+        "ifname": "eth0",
+        "flags": [
+          "NO-CARRIER",
+          "BROADCAST",
+          "MULTICAST",
+          "UP",
+          "M-DOWN"
+        ],
+        "operstate": "LOWERLAYERDOWN",
+        "addr_info": []
+      }
+    },
+    "reconnected": {
+      "routes4": [],
+      "routes6": [
+        {
+          "dst": "2001:db8:1::/64",
+          "dev": "eth0",
+          "table": "17855",
+          "protocol": "static",
+          "metric": 10,
+          "flags": [],
+          "pref": "medium"
+        }
+      ],
+      "interface": {
+        "ifname": "eth0",
+        "flags": [
+          "BROADCAST",
+          "MULTICAST",
+          "UP",
+          "LOWER_UP"
+        ],
+        "operstate": "UP",
+        "addr_info": [
+          {
+            "family": "inet",
+            "local": "192.168.1.2",
+            "prefixlen": 24,
+            "scope": "global",
+            "label": "eth0",
+            "valid_life_time": 4294967295,
+            "preferred_life_time": 4294967295
+          },
+          {
+            "family": "inet6",
+            "local": "2001:db8:1::2",
+            "prefixlen": 64,
+            "scope": "global",
+            "nodad": true,
+            "valid_life_time": 4294967295,
+            "preferred_life_time": 4294967295
+          }
+        ]
+      }
+    }
+  }
+}

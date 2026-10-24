@@ -1,0 +1,59 @@
+auto wifi — externes USB-WLAN
+
+auto wifi                           Zustand, SSID und IP-Adressen anzeigen
+sudo auto wifi "Meine SSID"          Verbinden/wechseln; Passwort verdeckt abfragen
+sudo auto wifi "Meine SSID" --autoconnect-on   Profil-Autoconnect aktivieren
+sudo auto wifi "Meine SSID" --autoconnect-off  Profil-Autoconnect deaktivieren
+sudo auto wifi --off                 Ausgewählten Clientadapter trennen
+sudo auto wifi --monitor             Trennen und in Monitormodus wechseln
+sudo auto wifi --managed             Vom Monitor zurück zum Client, getrennt
+sudo auto wifi --interface wlan0 "Meine SSID"
+auto wifi --help
+
+Gespeicherte Client-WLANs verbinden standardmäßig nur manuell. --autoconnect-on
+erteilt dem vorhandenen Profil eine dauerhafte Freigabe; --autoconnect-off
+nimmt sie zurück. Kein neues Profil, vorhandene Passwörter bleiben erhalten.
+Ein ereignisgesteuerter Dienst setzt auch neue Desktop-Profile ohne Freigabe
+auf Autoconnect aus. Keine periodischen Netzproben oder Verbindungsneustarts.
+ctrl0, Ethernet, AP- und temporäre Profile bleiben davon ausgenommen.
+
+Vorhandene brauchbare NetworkManager-Zugangsdaten werden wiederverwendet.
+Passwörter stehen niemals als Befehlsargumente. Bei mehreren USB-Adaptern
+listet ein Terminal die Namen und USB-Identitäten zur Auswahl per Nummer/Name
+auf. Ohne Terminal erfordern Änderungen --interface. ctrl0 und sein gesamtes
+Funkmodul bleiben geschützt. sudo auto wifi --status nennt auch die SSID und
+Rolle eines laufenden zusätzlichen APs.
+
+Der Status trennt admin (Schnittstelle aktiviert), operational (Kernel-Linkzustand)
+und NetworkManager-Verbindung. admin up bedeutet allein noch nicht verbunden.
+
+Die beiden --autoconnect-*-Optionen ändern dauerhaft nur ein bereits gespeichertes
+Clientprofil. Sie benötigen die SSID und verbinden oder trennen nicht ausdrücklich.
+Es wird kein Profil angelegt. Mehrere passende Profile derselben SSID werden
+abgewiesen. Fremde/AP-Profile, erweiterte Match-Regeln und nicht sicher prüfbare
+MAC-Bindungen werden nicht verändert. UUID und Änderung werden geprüft; bei
+Fehlern werden Bit und Freigabe zurückgesetzt, sofern die Profilidentität unverändert
+ist. Fremde gleichzeitige Änderungen können eine sichere Rücknahme verhindern.
+NetworkManager kann ein freigegebenes Profil nach seinen eigenen Regeln verbinden.
+Die Gerätesperre durch --off wird dadurch nicht aufgehoben. Die reine SSID verbindet
+weiterhin manuell, ohne das Autoconnect-Laufzeitflag des Geräts zu verändern.
+
+--off erhält gespeicherte Profile und sperrt Autoconnect zur Laufzeit. Im
+Monitormodus wird nur der ausgewählte Link heruntergesetzt. --managed lässt
+eine bereits von NetworkManager verwaltete Clientverbindung unverändert.
+Diese Änderungen gelten zur Laufzeit, nicht als Starteinstellungen.
+
+Bei Fehlern wird die Wiederherstellung des vorherigen Zustands versucht.
+Ein abgezogener Adapter oder ein unerreichbares vorheriges WLAN kann dies
+verhindern. Es wird kein ausschließliches Routing über USB eingerichtet.
+Neue versteckte oder Enterprise-WLANs benötigen zunächst ein geeignetes
+NetworkManager-Profil. Gemeinsam genutzte Funkmodule werden nicht verändert.
+Hilfe und Status lesen nur; die Befehlsausgabe ist Englisch.
+
+Benötigt die installierten Komponenten wifi-control und auto-cli.
+Verbindungs- und Moduswechsel werden später gemeinsam an der Hardware geprüft.
+
+Die neuen Profil-Autoconnect-Schalter benötigen noch ihre eigene Live-Abnahme.
+
+Nur dauerhaft gespeicherte Systemprofile ohne ungespeicherte/generierte Zustände
+sind zulässig; temporäre oder Herstellerprofile werden nicht still gespeichert.

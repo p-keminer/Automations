@@ -1,0 +1,918 @@
+{
+  "nftables": [
+    {
+      "metainfo": {
+        "json_schema_version": 1,
+        "release_name": "Old Doc Yak #3",
+        "version": "1.0.9"
+      }
+    },
+    {
+      "chain": {
+        "family": "inet",
+        "handle": 1,
+        "hook": "input",
+        "name": "input",
+        "policy": "drop",
+        "prio": 0,
+        "table": "pi4",
+        "type": "filter"
+      }
+    },
+    {
+      "rule": {
+        "chain": "input",
+        "comment": "auto-share:dns-udp-v1",
+        "expr": [
+          {
+            "match": {
+              "left": {
+                "meta": {
+                  "key": "iifname"
+                }
+              },
+              "op": "==",
+              "right": "ctrl0"
+            }
+          },
+          {
+            "match": {
+              "left": {
+                "payload": {
+                  "field": "saddr",
+                  "protocol": "ip"
+                }
+              },
+              "op": "==",
+              "right": {
+                "prefix": {
+                  "addr": "10.78.0.0",
+                  "len": 24
+                }
+              }
+            }
+          },
+          {
+            "match": {
+              "left": {
+                "payload": {
+                  "field": "daddr",
+                  "protocol": "ip"
+                }
+              },
+              "op": "==",
+              "right": "10.78.0.1"
+            }
+          },
+          {
+            "match": {
+              "left": {
+                "payload": {
+                  "field": "dport",
+                  "protocol": "udp"
+                }
+              },
+              "op": "==",
+              "right": 1053
+            }
+          },
+          {
+            "accept": null
+          }
+        ],
+        "family": "inet",
+        "handle": 59,
+        "table": "pi4"
+      }
+    },
+    {
+      "rule": {
+        "chain": "input",
+        "comment": "auto-share:dns-tcp-v1",
+        "expr": [
+          {
+            "match": {
+              "left": {
+                "meta": {
+                  "key": "iifname"
+                }
+              },
+              "op": "==",
+              "right": "ctrl0"
+            }
+          },
+          {
+            "match": {
+              "left": {
+                "payload": {
+                  "field": "saddr",
+                  "protocol": "ip"
+                }
+              },
+              "op": "==",
+              "right": {
+                "prefix": {
+                  "addr": "10.78.0.0",
+                  "len": 24
+                }
+              }
+            }
+          },
+          {
+            "match": {
+              "left": {
+                "payload": {
+                  "field": "daddr",
+                  "protocol": "ip"
+                }
+              },
+              "op": "==",
+              "right": "10.78.0.1"
+            }
+          },
+          {
+            "match": {
+              "left": {
+                "payload": {
+                  "field": "dport",
+                  "protocol": "tcp"
+                }
+              },
+              "op": "==",
+              "right": 1053
+            }
+          },
+          {
+            "accept": null
+          }
+        ],
+        "family": "inet",
+        "handle": 58,
+        "table": "pi4"
+      }
+    },
+    {
+      "rule": {
+        "chain": "input",
+        "comment": "auto-share:upstream-ra-v2",
+        "expr": [
+          {
+            "match": {
+              "left": {
+                "meta": {
+                  "key": "iifname"
+                }
+              },
+              "op": "==",
+              "right": "eth0"
+            }
+          },
+          {
+            "match": {
+              "left": {
+                "payload": {
+                  "field": "saddr",
+                  "protocol": "ip6"
+                }
+              },
+              "op": "==",
+              "right": {
+                "prefix": {
+                  "addr": "fe80::",
+                  "len": 10
+                }
+              }
+            }
+          },
+          {
+            "match": {
+              "left": {
+                "payload": {
+                  "field": "hoplimit",
+                  "protocol": "ip6"
+                }
+              },
+              "op": "==",
+              "right": 255
+            }
+          },
+          {
+            "match": {
+              "left": {
+                "payload": {
+                  "field": "type",
+                  "protocol": "icmpv6"
+                }
+              },
+              "op": "==",
+              "right": "nd-router-advert"
+            }
+          },
+          {
+            "accept": null
+          }
+        ],
+        "family": "inet",
+        "handle": 57,
+        "table": "pi4"
+      }
+    },
+    {
+      "rule": {
+        "chain": "input",
+        "comment": "auto-share:upstream-nd-v2",
+        "expr": [
+          {
+            "match": {
+              "left": {
+                "meta": {
+                  "key": "iifname"
+                }
+              },
+              "op": "==",
+              "right": "eth0"
+            }
+          },
+          {
+            "match": {
+              "left": {
+                "payload": {
+                  "field": "hoplimit",
+                  "protocol": "ip6"
+                }
+              },
+              "op": "==",
+              "right": 255
+            }
+          },
+          {
+            "match": {
+              "left": {
+                "payload": {
+                  "field": "type",
+                  "protocol": "icmpv6"
+                }
+              },
+              "op": "==",
+              "right": {
+                "set": [
+                  "nd-neighbor-solicit",
+                  "nd-neighbor-advert"
+                ]
+              }
+            }
+          },
+          {
+            "accept": null
+          }
+        ],
+        "family": "inet",
+        "handle": 56,
+        "table": "pi4"
+      }
+    },
+    {
+      "rule": {
+        "chain": "input",
+        "comment": "auto-share:upstream-errors-v2",
+        "expr": [
+          {
+            "match": {
+              "left": {
+                "meta": {
+                  "key": "iifname"
+                }
+              },
+              "op": "==",
+              "right": "eth0"
+            }
+          },
+          {
+            "match": {
+              "left": {
+                "payload": {
+                  "field": "type",
+                  "protocol": "icmpv6"
+                }
+              },
+              "op": "==",
+              "right": {
+                "set": [
+                  "destination-unreachable",
+                  "packet-too-big",
+                  "time-exceeded",
+                  "parameter-problem"
+                ]
+              }
+            }
+          },
+          {
+            "accept": null
+          }
+        ],
+        "family": "inet",
+        "handle": 54,
+        "table": "pi4"
+      }
+    },
+    {
+      "rule": {
+        "chain": "input",
+        "comment": "auto-share:upstream-mld-v2",
+        "expr": [
+          {
+            "match": {
+              "left": {
+                "meta": {
+                  "key": "iifname"
+                }
+              },
+              "op": "==",
+              "right": "eth0"
+            }
+          },
+          {
+            "match": {
+              "left": {
+                "payload": {
+                  "field": "saddr",
+                  "protocol": "ip6"
+                }
+              },
+              "op": "==",
+              "right": {
+                "prefix": {
+                  "addr": "fe80::",
+                  "len": 10
+                }
+              }
+            }
+          },
+          {
+            "match": {
+              "left": {
+                "payload": {
+                  "field": "hoplimit",
+                  "protocol": "ip6"
+                }
+              },
+              "op": "==",
+              "right": 1
+            }
+          },
+          {
+            "match": {
+              "left": {
+                "payload": {
+                  "field": "type",
+                  "protocol": "icmpv6"
+                }
+              },
+              "op": "==",
+              "right": "mld-listener-query"
+            }
+          },
+          {
+            "accept": null
+          }
+        ],
+        "family": "inet",
+        "handle": 52,
+        "table": "pi4"
+      }
+    },
+    {
+      "rule": {
+        "chain": "input",
+        "comment": "auto-share:upstream-dhcp6-v2",
+        "expr": [
+          {
+            "match": {
+              "left": {
+                "meta": {
+                  "key": "iifname"
+                }
+              },
+              "op": "==",
+              "right": "eth0"
+            }
+          },
+          {
+            "match": {
+              "left": {
+                "meta": {
+                  "key": "nfproto"
+                }
+              },
+              "op": "==",
+              "right": "ipv6"
+            }
+          },
+          {
+            "match": {
+              "left": {
+                "payload": {
+                  "field": "sport",
+                  "protocol": "udp"
+                }
+              },
+              "op": "==",
+              "right": 547
+            }
+          },
+          {
+            "match": {
+              "left": {
+                "payload": {
+                  "field": "dport",
+                  "protocol": "udp"
+                }
+              },
+              "op": "==",
+              "right": 546
+            }
+          },
+          {
+            "accept": null
+          }
+        ],
+        "family": "inet",
+        "handle": 51,
+        "table": "pi4"
+      }
+    },
+    {
+      "rule": {
+        "chain": "input",
+        "comment": "auto-share:control-nd-v2",
+        "expr": [
+          {
+            "match": {
+              "left": {
+                "meta": {
+                  "key": "iifname"
+                }
+              },
+              "op": "==",
+              "right": "ctrl0"
+            }
+          },
+          {
+            "match": {
+              "left": {
+                "payload": {
+                  "field": "hoplimit",
+                  "protocol": "ip6"
+                }
+              },
+              "op": "==",
+              "right": 255
+            }
+          },
+          {
+            "match": {
+              "left": {
+                "payload": {
+                  "field": "type",
+                  "protocol": "icmpv6"
+                }
+              },
+              "op": "==",
+              "right": {
+                "set": [
+                  "nd-router-solicit",
+                  "nd-neighbor-solicit",
+                  "nd-neighbor-advert"
+                ]
+              }
+            }
+          },
+          {
+            "accept": null
+          }
+        ],
+        "family": "inet",
+        "handle": 50,
+        "table": "pi4"
+      }
+    },
+    {
+      "rule": {
+        "chain": "input",
+        "comment": "auto-share:dns6-udp-v2",
+        "expr": [
+          {
+            "match": {
+              "left": {
+                "meta": {
+                  "key": "iifname"
+                }
+              },
+              "op": "==",
+              "right": "ctrl0"
+            }
+          },
+          {
+            "match": {
+              "left": {
+                "payload": {
+                  "field": "saddr",
+                  "protocol": "ip6"
+                }
+              },
+              "op": "==",
+              "right": {
+                "prefix": {
+                  "addr": "fd12:3456:789a:1::",
+                  "len": 64
+                }
+              }
+            }
+          },
+          {
+            "match": {
+              "left": {
+                "payload": {
+                  "field": "daddr",
+                  "protocol": "ip6"
+                }
+              },
+              "op": "==",
+              "right": "fd12:3456:789a:1::1"
+            }
+          },
+          {
+            "match": {
+              "left": {
+                "payload": {
+                  "field": "dport",
+                  "protocol": "udp"
+                }
+              },
+              "op": "==",
+              "right": 1053
+            }
+          },
+          {
+            "accept": null
+          }
+        ],
+        "family": "inet",
+        "handle": 48,
+        "table": "pi4"
+      }
+    },
+    {
+      "rule": {
+        "chain": "input",
+        "comment": "auto-share:dns6-tcp-v2",
+        "expr": [
+          {
+            "match": {
+              "left": {
+                "meta": {
+                  "key": "iifname"
+                }
+              },
+              "op": "==",
+              "right": "ctrl0"
+            }
+          },
+          {
+            "match": {
+              "left": {
+                "payload": {
+                  "field": "saddr",
+                  "protocol": "ip6"
+                }
+              },
+              "op": "==",
+              "right": {
+                "prefix": {
+                  "addr": "fd12:3456:789a:1::",
+                  "len": 64
+                }
+              }
+            }
+          },
+          {
+            "match": {
+              "left": {
+                "payload": {
+                  "field": "daddr",
+                  "protocol": "ip6"
+                }
+              },
+              "op": "==",
+              "right": "fd12:3456:789a:1::1"
+            }
+          },
+          {
+            "match": {
+              "left": {
+                "payload": {
+                  "field": "dport",
+                  "protocol": "tcp"
+                }
+              },
+              "op": "==",
+              "right": 1053
+            }
+          },
+          {
+            "accept": null
+          }
+        ],
+        "family": "inet",
+        "handle": 47,
+        "table": "pi4"
+      }
+    },
+    {
+      "rule": {
+        "chain": "input",
+        "expr": [
+          {
+            "match": {
+              "left": {
+                "meta": {
+                  "key": "iifname"
+                }
+              },
+              "op": "==",
+              "right": "lo"
+            }
+          },
+          {
+            "accept": null
+          }
+        ],
+        "family": "inet",
+        "handle": 4,
+        "table": "pi4"
+      }
+    },
+    {
+      "rule": {
+        "chain": "input",
+        "expr": [
+          {
+            "match": {
+              "left": {
+                "ct": {
+                  "key": "state"
+                }
+              },
+              "op": "==",
+              "right": {
+                "set": [
+                  "established",
+                  "related"
+                ]
+              }
+            }
+          },
+          {
+            "accept": null
+          }
+        ],
+        "family": "inet",
+        "handle": 6,
+        "table": "pi4"
+      }
+    },
+    {
+      "rule": {
+        "chain": "input",
+        "expr": [
+          {
+            "match": {
+              "left": {
+                "meta": {
+                  "key": "iifname"
+                }
+              },
+              "op": "==",
+              "right": "ctrl0"
+            }
+          },
+          {
+            "match": {
+              "left": {
+                "payload": {
+                  "field": "sport",
+                  "protocol": "udp"
+                }
+              },
+              "op": "==",
+              "right": 68
+            }
+          },
+          {
+            "match": {
+              "left": {
+                "payload": {
+                  "field": "dport",
+                  "protocol": "udp"
+                }
+              },
+              "op": "==",
+              "right": 67
+            }
+          },
+          {
+            "accept": null
+          }
+        ],
+        "family": "inet",
+        "handle": 7,
+        "table": "pi4"
+      }
+    },
+    {
+      "rule": {
+        "chain": "input",
+        "expr": [
+          {
+            "match": {
+              "left": {
+                "meta": {
+                  "key": "iifname"
+                }
+              },
+              "op": "==",
+              "right": "ctrl0"
+            }
+          },
+          {
+            "match": {
+              "left": {
+                "payload": {
+                  "field": "dport",
+                  "protocol": "udp"
+                }
+              },
+              "op": "==",
+              "right": 53
+            }
+          },
+          {
+            "accept": null
+          }
+        ],
+        "family": "inet",
+        "handle": 8,
+        "table": "pi4"
+      }
+    },
+    {
+      "rule": {
+        "chain": "input",
+        "expr": [
+          {
+            "match": {
+              "left": {
+                "meta": {
+                  "key": "iifname"
+                }
+              },
+              "op": "==",
+              "right": "ctrl0"
+            }
+          },
+          {
+            "match": {
+              "left": {
+                "payload": {
+                  "field": "dport",
+                  "protocol": "tcp"
+                }
+              },
+              "op": "==",
+              "right": 53
+            }
+          },
+          {
+            "accept": null
+          }
+        ],
+        "family": "inet",
+        "handle": 9,
+        "table": "pi4"
+      }
+    },
+    {
+      "rule": {
+        "chain": "input",
+        "expr": [
+          {
+            "match": {
+              "left": {
+                "meta": {
+                  "key": "iifname"
+                }
+              },
+              "op": "==",
+              "right": "ctrl0"
+            }
+          },
+          {
+            "match": {
+              "left": {
+                "payload": {
+                  "field": "protocol",
+                  "protocol": "ip"
+                }
+              },
+              "op": "==",
+              "right": "icmp"
+            }
+          },
+          {
+            "accept": null
+          }
+        ],
+        "family": "inet",
+        "handle": 10,
+        "table": "pi4"
+      }
+    },
+    {
+      "rule": {
+        "chain": "input",
+        "expr": [
+          {
+            "match": {
+              "left": {
+                "meta": {
+                  "key": "iifname"
+                }
+              },
+              "op": "==",
+              "right": "ctrl0"
+            }
+          },
+          {
+            "match": {
+              "left": {
+                "payload": {
+                  "field": "dport",
+                  "protocol": "tcp"
+                }
+              },
+              "op": "==",
+              "right": {
+                "set": [
+                  80,
+                  443
+                ]
+              }
+            }
+          },
+          {
+            "accept": null
+          }
+        ],
+        "family": "inet",
+        "handle": 12,
+        "table": "pi4"
+      }
+    },
+    {
+      "rule": {
+        "chain": "input",
+        "expr": [
+          {
+            "match": {
+              "left": {
+                "meta": {
+                  "key": "iifname"
+                }
+              },
+              "op": "==",
+              "right": "ctrl0"
+            }
+          },
+          {
+            "match": {
+              "left": {
+                "payload": {
+                  "field": "dport",
+                  "protocol": "tcp"
+                }
+              },
+              "op": "==",
+              "right": 22
+            }
+          },
+          {
+            "accept": null
+          }
+        ],
+        "family": "inet",
+        "handle": 13,
+        "table": "pi4"
+      }
+    }
+  ]
+}

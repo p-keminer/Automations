@@ -1,0 +1,44 @@
+LUEFTERSTEUERUNG
+
+sudo auto fan --auto    Temperaturabhaengige Kernelregelung verwenden.
+sudo auto fan --off     Konfigurierten Luefter-GPIO auf LOW halten.
+auto fan --status      Soll-/Istmodus, CPU-Temperatur und GPIO-Zustand anzeigen.
+auto fan --help        Befehlshilfe; auto fan ohne Option zeigt den Status.
+
+Fuer den offiziellen Raspberry Pi 4 Case Fan an BCM GPIO14 (physischer Pin 8).
+Versorgung: Pin 4 (5 V), Masse: Pin 6. Hardware nur am ausgeschalteten Pi
+anschliessen. Das Skript erkennt keinen physisch angeschlossenen Luefter und
+misst keine Drehzahl. HIGH/LOW bezeichnet den Ausgang, nicht die Rotation.
+
+Im Builder fan-control und auto-cli auswaehlen. Dort die Temperaturgrenzen
+setzen: Standard ein ab 60 C, aus unter 50 C; erlaubt 20 <= aus < ein <= 80.
+Erforderlich sind das konfigurierte gpio-fan-Overlay und ein Neustart sowie
+das Linux-Paket python3-libgpiod mit Python-API Version 2 oder neuer.
+
+AUTO/AUS bleibt ueber den Aktivierungszustand des AUS-Dienstes nach Neustarts
+erhalten. AUS ist keine elektrische Stromtrennung: Vor dem Dienststart kann
+die Kernelautomatik kurz laufen. Bei Ende oder Ausfall des AUS-Halters kehrt
+die Kernelautomatik zurueck; Neustartversuche sind begrenzt. Der CPU-Temperatur-
+schutz bleibt aktiv. Es gibt keine Option fuer dauerhaften Luefterbetrieb.
+Unterschiede zwischen angefordertem und tatsaechlichem Zustand werden angezeigt.
+
+Die Hardwareabnahme dieser neuen Komponente steht noch aus. Der Paketinstaller
+startet keinen Dienst; der Imagebuilder waehlt den Anfangsmodus ausdruecklich.
+Ein bestehendes System benoetigt das konfigurierte Image und einen Neustart.
+
+STATUSANGABEN
+Die CPU-Auslastung ist der Gesamtprozentwert einer etwa 0,2 Sekunden langen
+/proc/stat-Messung, kein Lastmittelwert. Fehlende oder widerspruechliche Werte
+werden als nicht verfuegbar ausgegeben. Temperatur, CPU-Temperaturschutz und
+kritische Schwelle stammen aus der CPU-Thermalzone. Eine Drosselung wird nicht
+aus Temperatur oder Takt geschaetzt.
+
+Fehlen Luefterkonfiguration oder GPIO-Bindings, bleiben CPU-Werte sichtbar.
+Der Luefterzustand lautet dann unknown (fault), mit konkreter Diagnose und
+Fehler-Exitcode. Hinweise beruhen auf Istmodus und konfigurierten Schwellen.
+
+Der aktuelle Test-Pi nutzt Python 3.13; neue verfuegbare Bindings brauchen
+Python 3.14. Keine inkompatiblen Pakete installieren und das laufende Python
+nicht dafuer aktualisieren. Schalten erfordert ein konsistentes neues Image
+mit libgpiod-Python-API v2. Ein deaktiviert installierter Dienst erlaubt
+zunaechst nur Hilfe- und Statuspruefungen.

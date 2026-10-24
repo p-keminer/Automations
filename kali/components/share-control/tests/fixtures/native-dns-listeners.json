@@ -1,0 +1,8 @@
+{
+  "source": "Isolated Pi dnsmasq 2.93; share-pi-ra-namespace-20261019T185144Z; ss -H -ltnp and -H -lunp, verbatim",
+  "pid": 175950,
+  "inputs": {
+    "-ltnp": "LISTEN 0      32                 10.78.0.1:1053 0.0.0.0:* users:((\"dnsmasq\",pid=175950,fd=6))\nLISTEN 0      32                 127.0.0.1:1053 0.0.0.0:* users:((\"dnsmasq\",pid=175950,fd=8))\nLISTEN 0      10                 10.78.0.1:80   0.0.0.0:* users:((\"python3\",pid=175850,fd=5))\nLISTEN 0      32                     [::1]:1053    [::]:* users:((\"dnsmasq\",pid=175950,fd=14))\nLISTEN 0      32        [fe80::789a]%ctrl0:1053    [::]:* users:((\"dnsmasq\",pid=175950,fd=10))\nLISTEN 0      32     [fd12:3456:789a:1::1]:1053    [::]:* users:((\"dnsmasq\",pid=175950,fd=12))\n",
+    "-lunp": "UNCONN 0      0                  127.0.0.1:1053 0.0.0.0:* users:((\"dnsmasq\",pid=175950,fd=7))\nUNCONN 0      0                  10.78.0.1:1053 0.0.0.0:* users:((\"dnsmasq\",pid=175950,fd=5))\nUNCONN 0      0                  10.78.0.1:80   0.0.0.0:* users:((\"python3\",pid=175850,fd=4))\nUNCONN 0      0                      [::1]:1053       *:* users:((\"dnsmasq\",pid=175950,fd=13))\nUNCONN 0      0      [fd12:3456:789a:1::1]:1053       *:* users:((\"dnsmasq\",pid=175950,fd=11))\nUNCONN 0      0               [fe80::789a]:1053       *:* users:((\"dnsmasq\",pid=175950,fd=9))\n"
+  }
+}

@@ -1,0 +1,16 @@
+Enable or disable certificate downloads
+
+  auto cert
+  auto cert --status
+  sudo auto cert --off
+  sudo auto cert --on
+  auto cert --help
+
+Requires auto-cli and the known Pi4 web access configuration.
+No argument shows actual status.
+off blocks only the public CA download at /cert and its known related
+download routes. on restores those routes.
+Guacamole, HTTPS, certificates and devices already trusting them are preserved.
+nginx reloads only after successful configuration validation.
+A disabled download responds with HTTP 404.
+

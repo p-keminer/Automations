@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "id": "share-control",
+  "version": "0.1.12",
+  "name": "Selected-uplink Internet sharing",
+  "description": "Optional runtime-only IPv4 and available IPv6 egress for the Pi and control clients through one connected USB Wi-Fi or wired uplink, including DNS and no fallback.",
+  "default_enabled": false,
+  "targets": {
+    "distributions": [
+      "kali"
+    ],
+    "architectures": [
+      "arm64"
+    ]
+  },
+  "packages": [
+    "python3",
+    "iproute2",
+    "nftables",
+    "dnsmasq",
+    "network-manager",
+    "systemd",
+    "conntrack"
+  ],
+  "files": [
+    {
+      "source": "python/share_refresh.py",
+      "destination": "usr/local/libexec/automations-support/share_refresh.py",
+      "mode": "0644"
+    },
+    {
+      "source": "components/share-control/files/automations-share-watch.service",
+      "destination": "etc/systemd/system/automations-share-watch.service",
+      "mode": "0644"
+    },
+    {
+      "source": "components/share-control/files/automations-share-watch.timer",
+      "destination": "etc/systemd/system/automations-share-watch.timer",
+      "mode": "0644"
+    },
+    {
+      "source": "python/auto_share.py",
+      "destination": "usr/local/libexec/automations/share",
+      "mode": "0755"
+    },
+    {
+      "source": "components/share-control/files/completion",
+      "destination": "usr/local/share/automations/completions/share",
+      "mode": "0644"
+    },
+    {
+      "source": "python/docs/de/share-control.txt",
+      "destination": "usr/local/share/automations/help/docs/de/share-control.txt",
+      "mode": "0644"
+    },
+    {
+      "source": "python/docs/en/share-control.txt",
+      "destination": "usr/local/share/automations/help/docs/en/share-control.txt",
+      "mode": "0644"
+    }
+  ],
+  "minimum_versions": {
+    "auto-cli": "0.1.3",
+    "anonymity-runtime": "0.1.7"
+  }
+}

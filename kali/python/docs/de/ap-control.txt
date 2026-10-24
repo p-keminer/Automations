@@ -1,0 +1,29 @@
+Steuer-WLAN: Sichtbarkeit
+
+  sudo auto ap
+  sudo auto ap --status
+  sudo auto ap --invisible
+  sudo auto ap --visible
+  auto ap --help
+
+Benötigt auto-cli und das konfigurierte Pi4-Steuer-WLAN auf ctrl0.
+Ohne Argument wird der Status angezeigt. Status und Änderungen benötigen
+auf dem Standardimage Rootrechte; die Hilfe funktioniert ohne Rootrechte.
+
+visible/invisible speichern die Sichtbarkeit und planen einen kurzen Neustart
+von hostapd ein. Das Steuer-WLAN und Browser-/SSH-Verbindungen werden dabei
+kurz unterbrochen. Danach wieder mit demselben WLAN verbinden und prüfen:
+  sudo auto ap --status
+Der Aufruf bestätigt nur die Einplanung, nicht bereits den erfolgreichen Wechsel.
+Auch bei bereits gespeicherter Einstellung wird hostapd erneut gestartet.
+
+Guacamole-Dienste, Sitzungsprozesse, Kennwort und Gerätezugänge werden nicht
+geändert. Die Sichtbarkeit bleibt gespeichert. Verstecken ist kein zusätzlicher
+Zugriffsschutz; neue Geräte benötigen gegebenenfalls den exakten WLAN-Namen.
+
+Der Status trennt gespeicherte Sichtbarkeit, laufenden AP und letztes Ergebnis:
+queued/running = geplant/läuft; applied = hostapd mit Einstellung neu gestartet
+und bereit. Dies ist kein unabhängig gemessener Funknachweis.
+recovered = vorherige Konfiguration wiederhergestellt oder keine Workeränderung;
+failed = Wiederherstellung unbestätigt, Administratorprüfung erforderlich.
+Parallele Aufrufe werden abgewiesen. Unbekannte Konfiguration wird nicht geändert.

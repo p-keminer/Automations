@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "id": "wifi-control",
+  "version": "0.1.6",
+  "name": "External USB Wi-Fi control",
+  "description": "Optional native NetworkManager and iw controls for one external USB Wi-Fi adapter while protecting the entire Pi4 control radio.",
+  "default_enabled": false,
+  "targets": {
+    "distributions": [
+      "kali"
+    ],
+    "architectures": [
+      "arm64"
+    ]
+  },
+  "packages": [
+    "python3",
+    "network-manager",
+    "iw",
+    "iproute2",
+    "systemd",
+    "python3-dbus",
+    "python3-gi"
+  ],
+  "files": [
+    {
+      "source": "python/wifi_autoconnect.py",
+      "destination": "usr/local/libexec/automations-support/wifi_autoconnect.py",
+      "mode": "0755"
+    },
+    {
+      "source": "components/wifi-control/files/automations-wifi-policy.service",
+      "destination": "etc/systemd/system/automations-wifi-policy.service",
+      "mode": "0644"
+    },
+    {
+      "source": "components/wifi-control/files/20-automations-wifi-policy.conf",
+      "destination": "etc/systemd/system/NetworkManager.service.d/20-automations-wifi-policy.conf",
+      "mode": "0644"
+    },
+    {
+      "source": "python/auto_wifi.py",
+      "destination": "usr/local/libexec/automations/wifi",
+      "mode": "0755"
+    },
+    {
+      "source": "components/wifi-control/files/completion",
+      "destination": "usr/local/share/automations/completions/wifi",
+      "mode": "0644"
+    },
+    {
+      "source": "python/docs/de/wifi-control.txt",
+      "destination": "usr/local/share/automations/help/docs/de/wifi-control.txt",
+      "mode": "0644"
+    },
+    {
+      "source": "python/docs/en/wifi-control.txt",
+      "destination": "usr/local/share/automations/help/docs/en/wifi-control.txt",
+      "mode": "0644"
+    }
+  ],
+  "minimum_versions": {
+    "auto-cli": "0.1.3"
+  }
+}

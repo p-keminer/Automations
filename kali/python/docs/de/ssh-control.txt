@@ -1,0 +1,32 @@
+Direkten SSH-Zugang im Steuernetz schalten
+
+  sudo auto ssh
+  sudo auto ssh --status
+  sudo auto ssh --on
+  sudo auto ssh --off
+  auto ssh --help
+
+Benötigt auto-cli und die geprüfte Pi4-Konfiguration. Ohne Argument: Status.
+Status und Änderungen benötigen Rootrechte; Hilfe nicht.
+on erlaubt neue SSH-Verbindungen auf TCP 22 ausschließlich über ctrl0.
+off sperrt neue und beendet bestehende direkte SSH-Verbindungen auf TCP 22.
+Guacamole-Shell auf 127.0.0.1:2222 und Desktop bleiben aktiv.
+Bei Aufruf über direktes SSH wird auch die eigene Verbindung getrennt. Ein
+kurzlebiger systemd-Worker führt den Vorgang unabhängig davon zu Ende.
+status zeigt auch die Anzahl vorhandener direkter SSH-Transport-Sockets.
+Bereits ausgeschaltetes SSH: off prüft und beendet trotzdem Restverbindungen.
+Wenn die Abmeldung fehlschlägt, bleiben neue Verbindungen gesperrt, aber einzelne
+alte Verbindungen können noch nutzbar sein. Der Befehl meldet dann einen Fehler
+und öffnet SSH nicht wieder. status prüfen und off gegebenenfalls wiederholen.
+Workerprotokoll: sudo journalctl -u automations-ssh-off.service
+Die Einstellung wird für den nächsten Start gespeichert.
+Unbekannte oder widersprüchliche Konfigurationen führen zu einem Fehler.
+
+Die SSH-Steuerung bleibt nach Abziehen des ausgewaehlten Freigabe-USB-Adapters
+bedienbar. Die fehlende Schnittstelle wird nur mit geschuetztem V2-Freigabezustand
+und exakt bekannten Firewallregeln anerkannt. Fehlender, veraenderter oder
+unsicherer Zustand wird abgewiesen.
+
+Version 0.1.4 unterstützt zusätzlich die optionale Tor-/Proxy-Ausgangssperre.
+Vor Änderungen werden deren gesamte eigene Regeln geprüft; es gibt keine
+pauschale Firewall-Ausnahme. Ohne diesen Helper bleibt SSH eigenständig nutzbar.

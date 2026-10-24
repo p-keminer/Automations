@@ -1,0 +1,31 @@
+Control direct SSH access on the control network
+
+  sudo auto ssh
+  sudo auto ssh --status
+  sudo auto ssh --on
+  sudo auto ssh --off
+  auto ssh --help
+
+Requires auto-cli and the validated Pi4 configuration. No argument means status.
+Status and changes require root; help does not.
+on permits new SSH connections on TCP 22 through ctrl0 only.
+off blocks new and terminates existing direct SSH connections on TCP 22.
+The Guacamole shell on 127.0.0.1:2222 and the desktop remain active.
+Calling off through direct SSH also disconnects that calling connection. A
+short-lived systemd worker completes the operation independently of the caller.
+status also shows the number of existing direct SSH transport sockets.
+Even when SSH is already off, off checks and terminates remaining connections.
+If termination fails, new connections remain blocked, but some existing
+connections may still be usable. The command reports an error and does not
+reopen SSH. Check status and retry off after inspecting the error.
+Worker log: sudo journalctl -u automations-ssh-off.service
+The setting is saved for subsequent boots.
+Unknown or inconsistent configurations cause a clear error.
+
+SSH control remains usable after the selected sharing USB adapter is removed.
+The missing interface is accepted only with its protected V2 sharing state and
+exact known firewall rules; missing, changed or unsafe state is rejected.
+
+Version 0.1.4 also supports the optional Tor/proxy firewall guard. Its complete
+owned rules are verified before changing SSH; no broad firewall exception is
+allowed. SSH still works independently when that helper is not installed.

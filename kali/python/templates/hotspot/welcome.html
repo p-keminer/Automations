@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="de">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Willkommen in {{SSID}}</title>
+<style>
+:root{color-scheme:dark;--page:#101821;--panel:#192838;--line:#3c566e;--text:#f2f6fb;--muted:#b4c3d2;--accent:#8ac1ff;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--page);color:var(--text);scrollbar-color:var(--line) var(--page)}
+*{box-sizing:border-box}body{margin:0;min-height:100svh;display:grid;place-items:center;padding:24px}main{width:min(100%,680px);padding:clamp(28px,7vw,64px);background:var(--panel);border:1px solid var(--line);border-radius:18px}svg{width:44px;height:44px;color:var(--accent);margin-bottom:28px}h1{font-size:clamp(28px,6vw,46px);font-weight:650;line-height:1.15;letter-spacing:-.03em;margin:0;overflow-wrap:anywhere}h1 span{display:block;color:var(--accent);margin-top:10px}p{font-size:17px;line-height:1.6;color:var(--muted);margin:28px 0 0}footer{border-top:1px solid var(--line);padding-top:20px;margin-top:38px;font-size:14px;color:var(--muted)}@media(max-width:360px){body{padding:16px}main{padding:24px}}@media(forced-colors:active){main,footer{border-color:CanvasText}}
+</style>
+<main>
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 8a15 15 0 0 1 18 0M6 12a10 10 0 0 1 12 0m-9 4a5 5 0 0 1 6 0" stroke-linecap="round"/><circle cx="12" cy="20" r="1" fill="currentColor" stroke="none"/></svg>
+<h1>Willkommen in <span>{{SSID}}</span></h1>
+<p>Du bist mit diesem WLAN verbunden.</p>
+<footer>Welcome — you are connected to this Wi-Fi network.</footer>
+</main>
+</html>

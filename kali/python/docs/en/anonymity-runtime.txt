@@ -1,0 +1,25 @@
+Tor egress guard
+
+This optional helper has no command of its own. auto tor uses it.
+First select a working uplink with sudo auto share --lan or sudo auto share --wifi.
+
+The selected share uplink stays fixed while Tor is configured, including a
+failed activation. Before changing it, run sudo auto tor --off. Activation errors keep
+external traffic blocked; there is no direct fallback. --off returns to the
+previous share path. Installation does not activate anything.
+During automatic Tor recovery only Tor bootstrap and its privileged verification
+request can leave; normal traffic resumes only after successful verification.
+If the command reports that its guard could not be verified, blocking is not
+confirmed; resolve that error before further use.
+
+Guacamole, the shell and pi4 remain locally accessible. External DNS queries use
+the selected anonymity backend. External UDP/QUIC is blocked. Tor supports
+IPv4 TCP and UDP DNS here; external IPv6 applications and TCP DNS to the Tor
+backend are blocked.
+
+The Share watcher can refresh metadata on the same uplink without restarting or
+proactively blocking a working Tor instance. Policies and protected selections
+are updated together; no direct DNS/IPv6 fallback. The resolver uses Tor's local
+DNS endpoint. Actual link/address loss can still interrupt existing connections.
+
+Requires share-control 0.1.10 or later and, if installed, ssh-control 0.1.5 or later.

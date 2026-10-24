@@ -1,0 +1,190 @@
+name: Components
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      builder_ref:
+        description: 'Builder full commit SHA for integration; defaults to repository variable BUILDER_REF'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: components-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  PYTHONDONTWRITEBYTECODE: '1'
+  PYTHONUNBUFFERED: '1'
+
+jobs:
+  catalog:
+    name: Validate component catalog
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+        working-directory: kali
+    outputs:
+      components: ${{ steps.catalog.outputs.components }}
+      builder_ref: ${{ steps.builder.outputs.ref }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Test component tooling
+        run: python3 -m unittest discover -s tests -v
+      - name: Resolve pinned builder integration revision
+        id: builder
+        env:
+          BUILDER_REF: ${{ inputs.builder_ref || vars.BUILDER_REF }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+
+          revision = os.environ['BUILDER_REF']
+          if revision and not re.fullmatch(r'[0-9a-f]{40}', revision):
+              raise SystemExit('BUILDER_REF must be a full lowercase commit SHA, not a branch or tag.')
+          if not revision:
+              print('::notice::Builder integration is not configured. Set BUILDER_REF after publishing the reviewed builder commit. Component jobs still run; they are not image integration acceptance.')
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
+              print('ref=' + revision, file=output)
+          PY
+      - name: Discover and validate component catalog
+        id: catalog
+        run: |
+          python3 tools/components.py list --json > "$RUNNER_TEMP/components.json"
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          components = json.loads((Path(os.environ['RUNNER_TEMP']) / 'components.json').read_text())
+          if not isinstance(components, list) or not all(isinstance(item, str) for item in components):
+              raise SystemExit('The component catalog must be a JSON array of component IDs.')
+          if len(components) > 256:
+              raise SystemExit('The catalog exceeds the GitHub Actions matrix limit of 256 jobs.')
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
+              print('components=' + json.dumps(components, separators=(',', ':')), file=output)
+          PY
+
+  component:
+    name: Check and build ${{ matrix.component }}
+    needs: catalog
+    if: needs.catalog.outputs.components != '[]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+        working-directory: kali
+    strategy:
+      fail-fast: false
+      matrix:
+        component: ${{ fromJSON(needs.catalog.outputs.components) }}
+    env:
+      COMPONENT: ${{ matrix.component }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Validate component and run its tests
+        run: python3 tools/components.py check --component "$COMPONENT"
+      - name: Install native routing test dependencies
+        if: matrix.component == 'anonymity-runtime' || matrix.component == 'hotspot-control'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends --yes iproute2 nftables conntrack util-linux
+      - name: Verify privacy routing in isolated network namespaces
+        if: matrix.component == 'anonymity-runtime'
+        run: sudo unshare -n python3 components/anonymity-runtime/tests/namespace_check.py
+      - name: Verify optional AP isolation and source selection with real packets
+        if: matrix.component == 'hotspot-control'
+        run: sudo unshare -n python3 components/hotspot-control/tests/namespace_check.py
+      - name: Build three independent byte-identical component archives
+        run: |
+          python3 tools/components.py build --component "$COMPONENT" --output dist
+          for iteration in 2 3; do
+            destination="$RUNNER_TEMP/repro-$iteration"
+            python3 tools/components.py build --component "$COMPONENT" --output "$destination"
+            for archive in dist/*.tar.gz; do
+              cmp -- "$archive" "$destination/${archive##*/}"
+              cmp -- "$archive.sha256" "$destination/${archive##*/}.sha256"
+            done
+          done
+      - name: Upload checked component package
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: component-package-${{ matrix.component }}
+          path: kali/dist/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+
+  integration:
+    name: Assemble ${{ matrix.group }} component sets
+    needs: [catalog, component]
+    if: needs.catalog.outputs.builder_ref != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        group: [baseline, individual, network, privacy, all]
+    env:
+      COMPONENT_GROUP: ${{ matrix.group }}
+      BUILDER_REF: ${{ needs.catalog.outputs.builder_ref }}
+      AUTOMATIONS_REF: ${{ github.sha }}
+      EXPECTED_COMPONENTS: ${{ needs.catalog.outputs.components }}
+    steps:
+      - name: Check out the pinned builder contract
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: p-keminer/Pi4-Kali-Guacamole-Builder
+          ref: ${{ needs.catalog.outputs.builder_ref }}
+          persist-credentials: false
+      - name: Download the packages built in this workflow run
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          pattern: component-package-*
+          merge-multiple: true
+          path: build/component-packages
+      - name: Verify dependency-closed filesystem assemblies without building an image
+        run: |
+          test "$(git rev-parse HEAD)" = "$BUILDER_REF"
+          mkdir -p build/ci
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          Path('build/ci/revisions.json').write_text(json.dumps({
+              'builder': os.environ['BUILDER_REF'],
+              'automations': os.environ['AUTOMATIONS_REF'],
+          }, indent=2) + '\n', encoding='utf-8')
+          Path('build/ci/expected-components.json').write_text(os.environ['EXPECTED_COMPONENTS'], encoding='utf-8')
+          PY
+          sudo --preserve-env=PYTHONDONTWRITEBYTECODE,PYTHONUNBUFFERED python3 tools/check_component_sets.py \
+            --archives build/component-packages --group "$COMPONENT_GROUP" --output "build/ci/$COMPONENT_GROUP.json" \
+            --expected-catalog build/ci/expected-components.json
+      - name: Upload integration reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: component-set-${{ matrix.group }}
+          path: build/ci/
+          if-no-files-found: warn
+          retention-days: 14

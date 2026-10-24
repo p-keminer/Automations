@@ -1,0 +1,54 @@
+{
+  "properties": {
+    "exit": 0,
+    "stdout": "FragmentPath=/usr/lib/systemd/system/hostapd.service\nDropInPaths=/etc/systemd/system/hostapd.service.d/pi4.conf\nNeedDaemonReload=no\nType=forking\nPIDFile=/run/hostapd.pid\nExecStart={ path=/usr/sbin/hostapd ; argv[]=/usr/sbin/hostapd -B -P /run/hostapd.pid $DAEMON_OPTS ${DAEMON_CONF} ; ignore_errors=no ; start_time=[n/a] ; stop_time=[n/a] ; pid=0 ; code=(null) ; status=0/0 }\nEnvironment=DAEMON_CONF=/etc/hostapd/hostapd.conf\nEnvironmentFiles=/etc/default/hostapd (ignore_errors=yes)\nPassEnvironment=\nUnsetEnvironment=\n",
+    "stderr": ""
+  },
+  "default_sha": {
+    "exit": 0,
+    "stdout": "94f30a41e3778216c8e7651a7593d0aad8a82c8b0517c72e29e4bbb78ee47e49  /etc/default/hostapd\n",
+    "stderr": ""
+  },
+  "default_lines": {
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "unit": {
+    "exit": 0,
+    "stdout": "# /usr/lib/systemd/system/hostapd.service\n[Unit]\nDescription=Access point and authentication server for Wi-Fi and Ethernet\nDocumentation=man:hostapd(8)\nAfter=network.target\nConditionFileNotEmpty=/etc/hostapd/hostapd.conf\n\n[Service]\nType=forking\nPIDFile=/run/hostapd.pid\nRestart=on-failure\nRestartSec=2\nEnvironment=DAEMON_CONF=/etc/hostapd/hostapd.conf\nEnvironmentFile=-/etc/default/hostapd\nExecStart=/usr/sbin/hostapd -B -P /run/hostapd.pid $DAEMON_OPTS ${DAEMON_CONF}\n\n[Install]\nWantedBy=multi-user.target\n\n# /etc/systemd/system/hostapd.service.d/pi4.conf\n[Unit]\nRequires=systemd-networkd.service\nAfter=systemd-networkd.service sys-subsystem-net-devices-ctrl0.device\nBindsTo=sys-subsystem-net-devices-ctrl0.device\n\n[Service]\nRestart=on-failure\nRestartSec=2\n",
+    "stderr": ""
+  },
+  "properties_all": {
+    "exit": 0,
+    "stdout": "FragmentPath=/usr/lib/systemd/system/hostapd.service\nDropInPaths=/etc/systemd/system/hostapd.service.d/pi4.conf\nNeedDaemonReload=no\nType=forking\nPIDFile=/run/hostapd.pid\nExecStart={ path=/usr/sbin/hostapd ; argv[]=/usr/sbin/hostapd -B -P /run/hostapd.pid $DAEMON_OPTS ${DAEMON_CONF} ; ignore_errors=no ; start_time=[n/a] ; stop_time=[n/a] ; pid=0 ; code=(null) ; status=0/0 }\nEnvironment=DAEMON_CONF=/etc/hostapd/hostapd.conf\nEnvironmentFiles=/etc/default/hostapd (ignore_errors=yes)\nPassEnvironment=\nUnsetEnvironment=\n",
+    "stderr": ""
+  },
+  "dbus_hooks": {
+    "ExecStartPre": {
+      "exit": 0,
+      "stdout": "a(sasbttttuii) 0\n",
+      "stderr": ""
+    },
+    "ExecStartPost": {
+      "exit": 0,
+      "stdout": "a(sasbttttuii) 0\n",
+      "stderr": ""
+    },
+    "ExecStop": {
+      "exit": 0,
+      "stdout": "a(sasbttttuii) 0\n",
+      "stderr": ""
+    },
+    "ExecStopPost": {
+      "exit": 0,
+      "stdout": "a(sasbttttuii) 0\n",
+      "stderr": ""
+    },
+    "ExecReload": {
+      "exit": 0,
+      "stdout": "a(sasbttttuii) 0\n",
+      "stderr": ""
+    }
+  }
+}

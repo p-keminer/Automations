@@ -1,0 +1,8 @@
+[Unit]
+Description=Retry recovery while optional Tor mode is enabled
+
+[Timer]
+OnActiveSec=5s
+OnUnitInactiveSec=10s
+AccuracySec=1s
+Unit=automations-tor-recovery.service

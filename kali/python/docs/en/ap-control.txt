@@ -1,0 +1,29 @@
+Control Wi-Fi: visibility
+
+  sudo auto ap
+  sudo auto ap --status
+  sudo auto ap --invisible
+  sudo auto ap --visible
+  auto ap --help
+
+Requires auto-cli and the configured Pi4 control access point on ctrl0.
+No argument shows status. Status and changes need root on the standard image;
+help works without root.
+
+visible/invisible save visibility and schedule a short hostapd restart.
+Control Wi-Fi and browser/SSH connections disconnect briefly. Reconnect to
+the same network, then check:
+  sudo auto ap --status
+The command confirms scheduling, not successful application.
+Even an already configured setting deliberately restarts hostapd.
+
+Guacamole services, session processes, passwords and device access are not
+changed. Visibility persists across reboot. Hiding the SSID adds no access
+security; a new device may need the exact network name entered manually.
+
+Status separates saved visibility, live AP state and the last operation result:
+queued/running = scheduled/in progress; applied = hostapd restarted with the
+setting and ready. This is not an independent measurement of radio visibility.
+recovered = previous configuration restored or no worker change was made;
+failed = recovery unconfirmed, administrator inspection required.
+Concurrent calls are rejected. Unknown configuration is not changed.

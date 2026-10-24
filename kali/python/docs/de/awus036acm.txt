@@ -1,0 +1,14 @@
+ALFA AWUS036ACM: Adapterstatus
+
+  awus-status
+  awus-status --json
+  awus-status --help
+
+Liest USB-ID 0e8d:7612, Treiber mt76x2u und zugehörige WLAN-Schnittstellen.
+Keine Rootrechte nötig; es werden keine Netzwerke oder Routen geändert.
+ready bestätigt nur Treiberbindung und Schnittstelle, keinen Internetzugang.
+Bei mehreren passenden Geräten wird keines automatisch ausgewählt.
+Ein fehlender Adapter wird niemals durch das interne Steuer-WLAN ersetzt.
+Linux übernimmt die automatische Treiberbindung. Die USB-ID ist kein
+sicherer Nachweis einer bestimmten Handelsmarke.
+

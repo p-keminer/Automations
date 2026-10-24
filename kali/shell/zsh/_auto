@@ -1,0 +1,11 @@
+#compdef auto
+# Read installed metadata through the fixed reader; never execute modules.
+local -a candidates
+candidates=("${(@f)$(/usr/bin/python3 \
+    /usr/local/libexec/automations-support/completion.py \
+    "$((CURRENT - 1))" "${words[@]}" 2>/dev/null)}")
+candidates=("${(@)candidates:#}")
+if (( ${#candidates} )); then
+    compadd -Q -- "${candidates[@]}"
+fi
+return 0

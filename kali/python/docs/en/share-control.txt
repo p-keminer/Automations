@@ -1,0 +1,84 @@
+auto share - One Internet uplink for the Pi and control-WLAN devices
+
+sudo auto share --wifi
+  Use one already connected external USB Wi-Fi adapter.
+sudo auto share --lan
+  Use one already connected wired interface.
+sudo auto share --wifi --to wlan0
+  Select the Internet uplink explicitly. Without --to, multiple adapters
+  are listed for interactive selection; non-interactive use requires --to.
+sudo auto share --wifi --to wlan0 --from ctrl0,wlan1
+  Give the control WLAN and the additional AP on wlan1 Internet over wlan0.
+sudo auto share --wifi --to wlan0 --from wlan1
+  Give only the additional AP Internet; the Pi also uses wlan0. Local control
+  access stays available, but control-WLAN clients get no Internet forwarding.
+  Without --from, always ask which source networks to share, listing names,
+  numbers and SSIDs. Accept one name/number or comma-separated choices. Cancel
+  with Ctrl+C; no default is guessed. Non-interactive use requires --from.
+sudo auto share --off
+  Stop sharing and restore normal Pi routing. Keep the control WLAN and uplink connected.
+sudo auto share --status
+  Show actual sharing state, selected uplink, DNS and available interfaces.
+The previous --interface option remains accepted as a compatibility alias.
+
+auto share --help
+  Show command help. With no option the command shows status.
+
+Connect the uplink first, for example with auto wifi. Sharing does not establish
+or disconnect that connection. IPv4 address, gateway and usable DNS are required.
+IPv6-only uplinks are unsupported; there is no NAT64 or DNS64.
+
+While active, the Pi and selected client networks use only the selected uplink. This also
+covers UDP/TCP DNS. A separate local resolver uses the selected DNS servers;
+the local name pi4 stays available. Encrypted DNS uses the same selected egress
+but is not intercepted. No fallback to another Wi-Fi adapter or LAN is allowed.
+Existing external connections through another uplink may stop working.
+Local control access and loopback remain available during switching.
+
+After admitting necessary IPv6 router/neighbor/DHCP messages, a bounded probe
+checks for a usable global IPv6 address and default route. If available, control
+clients receive a private ULA prefix via RA/SLAAC; NAT66 uses the selected uplink.
+No delegated prefix is required. If the completed probe finds no usable IPv6,
+IPv6 Internet egress is blocked. Probe or setup errors fail activation rather
+than silently claiming that the network does not support IPv6.
+
+Sharing is off by default and lasts until reboot. --off restores saved runtime
+forwarding and removes owned routes, addresses, resolver and firewall objects;
+normal NetworkManager routing resumes. Persistent DHCP/AP/NM configuration stays
+unchanged.
+
+A runtime watcher inspects only the selected uplink every 30 seconds. DNS,
+address, gateway and IPv6 changes are refreshed after two consistent observations.
+This is not a download deadline. It does not connect adapters, change client
+sources or select another uplink. DNS reloads do not restart Share or Tor.
+Still-valid established flows remain admitted on that same uplink. Actual loss
+of a used address or link may nevertheless interrupt them. A change in IPv6
+availability can restart the dedicated DNS/RA process, preserving the control
+WLAN, Guacamole, Tor and data connections. An existing control ULA remains local
+until --off.
+
+The watcher starts with sharing and stops on --off or reboot. It reads local
+network metadata, without constant Internet probes. Status and journal report
+changes/errors; unknown rules/configuration are not overwritten. A protected
+intent record lets the next serialized call resume interrupted owned updates.
+Internet service availability is not guaranteed.
+
+Status separates administrative, operational and NetworkManager link state.
+An enabled interface is not necessarily connected. Degraded/incomplete state
+requires inspecting the uplink or running --off; retained guard/state fails closed
+until cleanup succeeds. Do not override managed objects while sharing is active.
+
+Root is required for changes and status (live firewall inspection). Install with
+auto-cli. The supported Pi4 layout, standard nobody/nogroup identity and compatible
+nftables/dnsmasq are required. Unknown policy rules/configuration are refused.
+
+Turn Tor off before manually changing the uplink or source selection. Automatic
+refresh of the same uplink also works under Tor, without proactively blocking or
+restarting a working Tor instance. The resolver then uses only Tor's local DNS
+port, returning to selected uplink resolvers on Tor off.
+The anonymity guard owns separate, strictly checked rules; SSH and local access
+remain available. Sharing can still be used without either optional mode.
+
+After guest-AP loss, Linux can mark its owned input rule as detached. Cleanup
+removes only that exact owned rule when the guest interface is truly absent.
+Unknown or modified rules remain errors; this state never counts as healthy.

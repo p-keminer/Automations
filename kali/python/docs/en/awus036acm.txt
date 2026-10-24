@@ -1,0 +1,14 @@
+ALFA AWUS036ACM: adapter status
+
+  awus-status
+  awus-status --json
+  awus-status --help
+
+Reads USB ID 0e8d:7612, the mt76x2u driver and associated Wi-Fi interfaces.
+No root privileges are required; no networks or routes are changed.
+ready confirms driver binding and an interface, not Internet connectivity.
+If several matching devices exist, none is selected automatically.
+A missing adapter is never replaced by the internal control Wi-Fi.
+Linux performs automatic driver binding. The USB ID does not authenticate
+a particular retail brand.
+

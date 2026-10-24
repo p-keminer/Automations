@@ -1,0 +1,17 @@
+[Unit]
+Description=Isolated runtime USB welcome access point
+After=NetworkManager.service
+
+[Service]
+Type=notify
+NotifyAccess=main
+ExecStart=/usr/local/libexec/automations-support/hotspot.py --internal-worker
+ExecStopPost=/usr/local/libexec/automations-support/hotspot.py --internal-cleanup
+Restart=no
+KillMode=control-group
+TimeoutStartSec=50
+TimeoutStopSec=45
+UMask=0077
+NoNewPrivileges=yes
+StandardOutput=null
+StandardError=journal

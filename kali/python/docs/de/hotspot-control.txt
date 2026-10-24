@@ -1,0 +1,37 @@
+Zusätzlicher USB-Willkommens-AP
+
+sudo auto share ap "SSID" [--interface IFACE]  AP starten oder SSID ändern.
+sudo auto share ap --status                  Interface, SSID, Laufzeit, Clients, Webpfade.
+sudo auto share ap --off                     AP beenden; ctrl0 bleibt erhalten.
+sudo auto share ap --help                    Befehlsübersicht.
+
+Beide externen Adapter sind gleichberechtigt. Bei mehreren Kandidaten fragt
+die CLI im Terminal nach; ohne Terminal --interface angeben. Passwort verdeckt:
+leer = offener AP, WPA2 benötigt technisch 8-63 druckbare ASCII-Zeichen.
+Kein automatischer AP-Start nach Neustart. Gespeicherte Client-Profile und ihre
+Autoconnect-Schalter bleiben erhalten. AP AUS gibt den Adapter im Managed-Modus
+ohne aktive Client-Verbindung zurück.
+Bei Geräteverlust beendet und bereinigt der AP-Dienst seine Laufzeitressourcen.
+Wiedereinstecken startet den AP nicht automatisch; anschließend ausdrücklich
+neu starten. Status und Überwachung prüfen die gespeicherte Funkgeräteidentität,
+nicht nur laufende Prozesse. Eine andere gleichnamige Schnittstelle bleibt geschützt.
+
+Internet: sudo auto share --wifi --to ANDERER_ADAPTER --from AP_ADAPTER
+oder --lan. --from ctrl0,AP_ADAPTER gibt beide WLANs frei. Ohne --from die Namen
+oder Nummern aus der aufgelisteten Auswahl eingeben, mehrere durch Kommas
+getrennt. Alle ausgewählten Clients nutzen diesen Uplink ohne Ausweichweg. Share --off
+beendet nur die Internetfreigabe; die lokale Willkommensseite bleibt verfügbar.
+Tor übernimmt denselben Uplink. Vor AP-/Uplinkwechsel Tor ausschalten.
+IPv6 ist im zusätzlichen AP deaktiviert.
+
+Seite: http://10.79.0.1/ ; https://pi4/ benötigt das bekannte Pi4-CA-Vertrauen.
+Das Handy/Betriebssystem entscheidet über das automatische Anmeldefenster;
+gegebenenfalls HTTP direkt öffnen. Nur Web sowie notwendiges DNS/DHCP, kein SSH
+oder Guacamole und kein Zugriff ins Steuer-/private Upstream-Netz. Client-Isolation.
+
+Template: /usr/local/share/automations/hotspot/welcome.html
+Vorlagenverzeichnis: /usr/local/share/automations/hotspot
+Ausgelieferte Webdateien: /run/automations-hotspot-www (während der Laufzeit erzeugt).
+--status zeigt beide Verzeichnisse auch bei ausgeschaltetem AP an.
+Mit sudo bearbeiten, {{SSID}} beibehalten, AP neu starten/umbenennen.
+Die SSID wird HTML-escaped. Keine Passwort-/Loginform und keine externen Inhalte.

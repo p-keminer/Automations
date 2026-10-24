@@ -1,0 +1,16 @@
+Zertifikatsdownload ein- und ausschalten
+
+  auto cert
+  auto cert --status
+  sudo auto cert --off
+  sudo auto cert --on
+  auto cert --help
+
+Benötigt auto-cli und den bekannten Pi4-Webzugang.
+Ohne Argument wird der tatsächliche Status angezeigt.
+off sperrt nur den öffentlichen CA-Download unter /cert und die dazugehörigen
+bekannten Downloadrouten. on gibt diese Routen wieder frei.
+Guacamole, HTTPS, Zertifikate und bereits vertrauende Geräte bleiben erhalten.
+nginx wird nur nach erfolgreicher Konfigurationsprüfung neu eingelesen.
+Ein gesperrter Download antwortet mit HTTP 404.
+

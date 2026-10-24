@@ -1,0 +1,17 @@
+Automations: command overview
+
+Purpose: entry point and Bash completion for explicitly installed modules.
+
+  auto
+  auto --help
+  auto <command> --help
+
+Only installed commands are offered. auto itself changes no system settings.
+Help for selected components is available in docs/de and docs/en.
+Commands that change settings may require sudo; their help lists prerequisites.
+For example, use sudo auto fan --status or sudo auto wifi "SSID".
+The fixed launcher also works with a restricted sudo command search path;
+sudo permissions and its normal password prompt remain unchanged.
+Command output and options are English. Press Tab in Bash to complete
+installed commands and their available options.
+

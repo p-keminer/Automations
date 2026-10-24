@@ -1,0 +1,35 @@
+Additional USB welcome AP
+
+sudo auto share ap "SSID" [--interface IFACE]  Start or rename the AP.
+sudo auto share ap --status                  Interface, SSID, uptime, clients, web paths.
+sudo auto share ap --off                     Stop the AP; ctrl0 is unchanged.
+sudo auto share ap --help                    Command help.
+
+Either external adapter may be selected. Multiple candidates prompt in a TTY;
+non-interactive commands require --interface. Password entry is hidden. Empty
+password = open AP; WPA2 requires 8-63 printable ASCII characters. No AP starts
+after reboot. Existing client profiles/autoconnect flags are retained. AP OFF
+returns its adapter to managed, disconnected mode.
+Loss of the adapter stops and cleans up the AP runtime. Plugging it back in does
+not restart the AP automatically; start it explicitly. Status and monitoring check
+the recorded radio identity, not only running processes. Another interface that
+reuses the name remains protected.
+
+Internet: sudo auto share --wifi --to OTHER_ADAPTER --from AP_ADAPTER,
+or --lan. --from ctrl0,AP_ADAPTER shares both WLANs. Without --from, choose source
+names/numbers from the displayed list, comma-separated. All selected clients
+use that uplink without fallback. --off stops Internet
+sharing, not the local welcome page. Tor uses that same uplink; stop Tor before
+changing the AP or the share selection. Guest IPv6 is disabled.
+
+Page: http://10.79.0.1/ ; HTTPS https://pi4/ needs the existing Pi4 CA trust.
+Automatic captive-window opening depends on the phone/OS; use HTTP directly if
+needed. Only web, DNS and DHCP are available; no SSH or Guacamole, and no access
+to the control/private upstream networks. Stations are isolated.
+
+Template: /usr/local/share/automations/hotspot/welcome.html
+Template directory: /usr/local/share/automations/hotspot
+Served web files: /run/automations-hotspot-www (generated while the AP runs).
+--status shows these paths even while the AP is off.
+Edit with sudo, retain {{SSID}}, then restart/rename the AP. SSID substitution
+is HTML escaped. The page has no password/login form or external assets.

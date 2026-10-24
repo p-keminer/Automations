@@ -1,0 +1,16 @@
+[Unit]
+Description=Explicit opt-in for saved client WLAN autoconnect
+After=dbus.service
+Before=NetworkManager.service
+
+[Service]
+Type=notify
+NotifyAccess=main
+ExecStartPre=/usr/bin/python3 -B /usr/local/libexec/automations-support/wifi_autoconnect.py --prepare
+ExecStart=/usr/bin/python3 -B /usr/local/libexec/automations-support/wifi_autoconnect.py
+Restart=on-failure
+RestartSec=2
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

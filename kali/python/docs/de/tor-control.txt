@@ -1,0 +1,85 @@
+TOR-STEUERUNG
+
+sudo auto tor --on
+  Benötigt eine funktionsfähige auto-share-Freigabe. Aktiviert den separaten
+  Tor-Client mit automatischer Wiederherstellung für Pi und Steuergeräte;
+  lokaler Steuerzugang bleibt erhalten.
+sudo auto tor --off
+  Beendet Tor und stellt den zuvor gewählten Freigabeweg wieder her.
+sudo auto tor --status
+  Zeigt Routingzustand, Schnittstelle und aktuell gemessene öffentliche IP.
+sudo auto tor --rotate
+  Fordert neue Circuits für neue Verbindungen an und zeigt die gemessene IP.
+sudo auto tor --rotate-every 10m
+  Zeitsteuerung von 30s bis 24h mit ganzen s/m/h; auch zusammen mit --on.
+sudo auto tor --rotation-off
+  Stoppt nur die Zeitsteuerung; Tor bleibt aktiv. Standardmäßig ist sie aus.
+sudo auto tor --check
+  Lädt die Exitliste neu, ersetzt genau eine Datei und prüft die eigene IP.
+sudo auto tor --check --ip 1.1.1.1
+  Lädt die Liste neu und prüft diese öffentliche IP statt der Geräte-IP.
+sudo auto tor --check --status
+  Status und aktuelle IP plus Listenpfad; kein Listendownload/Listenvergleich.
+auto tor --help
+  Englische CLI-Hilfe ohne Netzwerkzugriff. Ohne Option wird --status verwendet.
+
+Nur bis zum Neustart aktiv; kein automatischer Tor-Start. Tor und Proxy sind
+Alternativen. Die aktive Freigabe kann erst nach Tor/Proxy --off umgeschaltet
+oder beendet werden. Nach einem Dienstausfall startet Tor automatisch neu.
+Normaler Internetverkehr von Pi und Steuergeräten bleibt gesperrt, bis eine
+geprüfte HTTPS-Abfrage durch Tor den Wiederanlauf bestätigt. Fehlgeschlagene
+Prüfungen werden wiederholt; kein direkter Ersatzweg wird geöffnet. --off/--on
+ist dafür nicht nötig. Guacamole, Desktop und Shell bleiben lokal erreichbar.
+--status zeigt die Wiederherstellung; --off beendet sie und stellt den
+Freigabeweg wieder her. Abgebrochene externe Verbindungen müssen Anwendungen
+gegebenenfalls neu aufbauen.
+Transparent unterstützt wird IPv4-TCP. Tor-DNS unterstützt A, AAAA und PTR über
+den vorhandenen lokalen Resolver. Ausgehendes DNS-TCP, sonstiges UDP, ICMP und
+externes Anwendungs-IPv6 bleiben gesperrt. Manche Anwendungen funktionieren
+daher nicht. Keine Zusage einer einheitlichen Exit-IP für alle Verbindungen.
+
+Rotation nutzt Tor NEWNYM über einen lokalen SAFECOOKIE-authentifizierten
+Unix-Socket. Tor, Firewall und laufende Verbindungen werden nicht neu gestartet
+oder getrennt. Mindestens zehn Sekunden Abstand gelten gemeinsam für manuelle
+und geplante Aufrufe; Tor kann zusätzlich verzögern oder ablehnen. Erfolg zählt
+erst nach Tors Aktionsereignis, nicht allein nach Empfang der Anforderung.
+Eine andere Exit-IP wird NICHT garantiert. Manuell wird die gemessene IP gezeigt;
+scheitert nur diese Messung, meldet der Befehl einen Fehler und erhält den
+erneut geprüften aktiven Schutz sowie denselben Tor-Dienst. Ein negatives
+Tor-Ergebnis oder eine Änderung von Dienst, Schutzregeln oder Uplink sperrt
+weiterhin den Verkehr. Erneutes --on bei bereits aktivem Tor nutzt dieselbe Regel.
+Die Zeitsteuerung läuft als auto-tor statt root und protokolliert nur Fehler im
+Journal. Der Zeitplan bleibt beim Tor-Wiederanlauf erhalten. --off oder
+--rotation-off beendet ihn. Tor, Wiederherstellung und Rotation starten nach
+einem Pi-Neustart nicht automatisch.
+
+Datei: /var/lib/automations/tor-exits.json
+Quelle: https://check.torproject.org/exit-addresses
+IP-Messung: https://check.torproject.org/api/ip
+Die öffentliche IP wird ausdrücklich über den aktuellen IPv4-Weg gemessen.
+Jede echte Prüfung lädt frisch über geprüftes TLS, ohne Weiterleitungen,
+beliebige URLs oder Rückfall auf die alte Datei. Quellzeit und Abrufzeit werden
+getrennt geprüft: jüngster Relaystatus höchstens 6h, verwendete IP-Beobachtungen
+und Relaystatus höchstens 24h, Zukunftstoleranz 5min. Der Bestand enthält
+beobachtete IPv4-Exits. Fehlende IPv6-Abdeckung ergibt einen Fehler. VERIFIED
+bestätigt den Listenfund; NOT LISTED nur den fehlenden Fund, keinen allgemeinen
+Beweis gegen Tor-Nutzung. Status prüft keine alte Liste. Keine Zusicherung für
+sämtlichen Verkehr.
+
+Normale HTTPS-Prüfabrufe verwenden eine gemeinsame Gesamtfrist von 40 Sekunden für höchstens
+drei Transportversuche. Vorübergehende DNS-Fehler und abgebrochene/verkürzte
+Übertragungen können wiederholt werden; Zertifikats- oder Inhaltsfehler nicht.
+Ein hängender Versuch kann die ganze Frist verbrauchen. Zeitüberschreitungen
+nennen die aktuelle DNS-/TCP-/SOCKS-/TLS-/HTTP-Phase. Eine fehlgeschlagene
+Messung bleibt ein Fehler und bestätigt Tor nicht als funktionsfähig.
+Die gesonderten Proben beim Tor-Start und bei der Wiederherstellung verwenden
+weiterhin je 10 Sekunden. Diese Prüfgrenzen begrenzen keine normalen Browser-
+Downloads oder Videowiedergaben über Tor.
+Belegt eine andere Freigabeoperation die gemeinsame Sperre, den Befehl nach
+deren Ende erneut aufrufen. Diese Ablehnung schaltet gesundes Tor nicht aus.
+
+Tor verwendet normale Circuits ohne die optionale Conflux-Circuit-Bündelung.
+Routing, TLS-Prüfung und HTTPS-Gesamtfrist bleiben unverändert. Diese Einstellung
+verbesserte den geprüften transparenten Pi-/Steuergeräteweg; die Exit-Leistung
+schwankt weiterhin. Eine erfolgreiche Prüfung bestätigt keine Anonymität für
+sämtlichen Verkehr.

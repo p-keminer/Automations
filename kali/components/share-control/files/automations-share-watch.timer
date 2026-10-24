@@ -1,0 +1,8 @@
+[Unit]
+Description=Watch the active Pi4 sharing selection
+
+[Timer]
+OnActiveSec=30s
+OnUnitInactiveSec=30s
+AccuracySec=1s
+Unit=automations-share-watch.service

@@ -1,0 +1,27 @@
+Tor-Ausgangssperre
+
+Diese optionale Hilfskomponente hat keinen eigenen Befehl. Sie wird von
+auto tor verwendet. Zuerst einen funktionierenden Ausgang
+auswählen: sudo auto share --lan oder sudo auto share --wifi.
+
+Während eines aktiven oder fehlgeschlagenen Tor-Starts bleibt der gewählte
+Share-Ausgang fest. Vor einem Wechsel zuerst sudo auto tor --off.
+Bei Startfehlern bleibt externer Verkehr gesperrt; es gibt keinen Direktfallback.
+--off kehrt zum vorherigen Share-Pfad zurück. Installation aktiviert nichts.
+Beim automatischen Tor-Wiederanlauf sind nur Tors Verbindungsaufbau und die
+privilegierte Prüfung freigegeben. Normaler Verkehr folgt erst nach Bestätigung.
+Meldet der Befehl einen nicht verifizierbaren Guard, ist dessen Sperrwirkung
+nicht bestätigt; den Fehler vor weiterer Nutzung beheben.
+
+Guacamole, Shell und pi4 bleiben lokal erreichbar. Externe DNS-Abfragen laufen
+durch das jeweilige Backend. Externes UDP/QUIC wird blockiert. Tor unterstützt
+hier IPv4-TCP und UDP-DNS; IPv6-Anwendungen und TCP-DNS zum Tor-Backend sind
+gesperrt.
+
+Der Share-Wächter kann Daten desselben Ausgangs nachführen, ohne Tor dafür neu
+zu starten oder vorsorglich zu sperren. Regeln und geschützte Auswahl werden
+gemeinsam aktualisiert; keine direkte DNS-/IPv6-Ausweichverbindung. Der eigene
+Resolver nutzt bei Tor dessen lokalen DNS-Port. Tatsächliche Netzausfälle und
+Adressverluste können bestehende Verbindungen unterbrechen.
+
+Erfordert share-control ab 0.1.10 und, falls installiert, ssh-control ab 0.1.5.

@@ -1,0 +1,17 @@
+Automations: Befehlsübersicht
+
+Zweck: Einstieg und Tab-Vervollständigung für ausdrücklich installierte Module.
+
+  auto
+  auto --help
+  auto <Befehl> --help
+
+Nur installierte Befehle werden angeboten. auto selbst schaltet nichts um.
+Die Hilfen der ausgewählten Komponenten stehen hier in docs/de und docs/en.
+Ändernde Befehle können sudo benötigen; die Hilfe nennt die Voraussetzungen.
+Dann etwa sudo auto fan --status oder sudo auto wifi "SSID" verwenden.
+Der feste Startbefehl funktioniert auch mit eingeschränktem sudo-Suchpfad;
+sudo-Berechtigungen und Passwortabfrage bleiben unverändert.
+Die Ausgabe und Befehlsoptionen sind englisch. Mit Tab werden installierte
+Befehle und ihre verfügbaren Optionen in Bash vervollständigt.
+
