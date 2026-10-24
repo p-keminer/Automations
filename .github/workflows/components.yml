@@ -109,10 +109,10 @@ jobs:
           sudo apt-get install --no-install-recommends --yes iproute2 nftables conntrack util-linux
       - name: Verify privacy routing in isolated network namespaces
         if: matrix.component == 'anonymity-runtime'
-        run: sudo unshare -n python3 components/anonymity-runtime/tests/namespace_check.py
+        run: sudo unshare -n python3 pi4/components/anonymity-runtime/tests/namespace_check.py
       - name: Verify optional AP isolation and source selection with real packets
         if: matrix.component == 'hotspot-control'
-        run: sudo unshare -n python3 components/hotspot-control/tests/namespace_check.py
+        run: sudo unshare -n python3 pi4/components/hotspot-control/tests/namespace_check.py
       - name: Build three independent byte-identical component archives
         run: |
           python3 tools/components.py build --component "$COMPONENT" --output dist
@@ -132,6 +132,33 @@ jobs:
           if-no-files-found: error
           retention-days: 14
           compression-level: 0
+
+  portable:
+    name: Check portable Kali deployment
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+        working-directory: kali
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Test the portable payload and guarded installer
+        run: python3 -m unittest discover -s portable/tests -v
+      - name: Install native routing test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends --yes iproute2 nftables conntrack util-linux
+      - name: Verify portable sharing in isolated network namespaces
+        run: sudo unshare -n python3 portable/components/share-control/tests/namespace_host_check.py
+      - name: Build two identical portable bundles
+        run: |
+          python3 portable/tools/payload.py --archive "$RUNNER_TEMP/portable-one.tar" > "$RUNNER_TEMP/portable-manifest.json"
+          python3 portable/tools/payload.py --archive "$RUNNER_TEMP/portable-two.tar" > /dev/null
+          cmp -- "$RUNNER_TEMP/portable-one.tar" "$RUNNER_TEMP/portable-two.tar"
 
   integration:
     name: Assemble ${{ matrix.group }} component sets

@@ -1,0 +1,1062 @@
+{
+  "provenance": {
+    "source": "host-tor-native-first-smoke.jsonl",
+    "source_sha256": "8ec17d8c2a2b8088d33fb81903d85c3c06659451db22926a9328aab9e5c5d084",
+    "state_source": "host-tor-native-guard-diff.json",
+    "state_source_sha256": "b14c3f60342d2b4480a6a5e897639e9458e8c6d2385230c717376e0158739d34",
+    "native_object_count": 28,
+    "normalization_failure_count": 2,
+    "identity_sanitization": "Only local addresses, MAC/device binding, UID/SSH peer port, run/profile/boot/netns identities are replaced; native nft structures, protocol enums, ordering and operators are preserved."
+  },
+  "state": {
+    "boot_id": "00000000-0000-4000-8000-000000000001",
+    "format": "AUTOMATIONS_HOST_TOR.v1",
+    "management": [
+      {
+        "destination": "192.0.2.50",
+        "destination_port": 55000,
+        "source": "192.0.2.2",
+        "source_port": 22
+      }
+    ],
+    "management_networks": [
+      "192.0.2.0/24"
+    ],
+    "mode": "tor",
+    "netns": "net:[4026531992]",
+    "pending": null,
+    "phase": "starting",
+    "profile_identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "run_id": "00000000-0000-4000-8000-000000000010",
+    "selection": {
+      "clients": [],
+      "dns": [
+        "192.0.2.1"
+      ],
+      "gateway": "192.0.2.1",
+      "mode": "lan",
+      "uplink": {
+        "address": "192.0.2.2",
+        "device_path": "sys/devices/eth0",
+        "ifindex": 2,
+        "mac": "02:00:00:00:00:02",
+        "name": "eth0",
+        "network": "192.0.2.0/24",
+        "wireless": false
+      }
+    },
+    "share_run_id": null,
+    "ssh_port": 22,
+    "uid": 60001
+  },
+  "nftables": [
+    {
+      "table": {
+        "family": "inet",
+        "name": "automations_host_tor",
+        "comment": "automations-host-tor:00000000-0000-4000-8000-000000000010"
+      }
+    },
+    {
+      "chain": {
+        "family": "inet",
+        "table": "automations_host_tor",
+        "name": "local_nat",
+        "type": "nat",
+        "hook": "output",
+        "prio": -110,
+        "policy": "accept"
+      }
+    },
+    {
+      "chain": {
+        "family": "inet",
+        "table": "automations_host_tor",
+        "name": "client_nat",
+        "type": "nat",
+        "hook": "prerouting",
+        "prio": -110,
+        "policy": "accept"
+      }
+    },
+    {
+      "chain": {
+        "family": "inet",
+        "table": "automations_host_tor",
+        "name": "client_guard",
+        "type": "filter",
+        "hook": "prerouting",
+        "prio": -310,
+        "policy": "accept"
+      }
+    },
+    {
+      "chain": {
+        "family": "inet",
+        "table": "automations_host_tor",
+        "name": "input_guard",
+        "type": "filter",
+        "hook": "input",
+        "prio": -30,
+        "policy": "accept"
+      }
+    },
+    {
+      "chain": {
+        "family": "inet",
+        "table": "automations_host_tor",
+        "name": "output_guard",
+        "type": "filter",
+        "hook": "output",
+        "prio": 0,
+        "policy": "drop"
+      }
+    },
+    {
+      "chain": {
+        "family": "inet",
+        "table": "automations_host_tor",
+        "name": "forward_guard",
+        "type": "filter",
+        "hook": "forward",
+        "prio": -40,
+        "policy": "drop"
+      }
+    },
+    {
+      "rule": {
+        "family": "inet",
+        "table": "automations_host_tor",
+        "chain": "local_nat",
+        "comment": "automations-host-tor:00000000-0000-4000-8000-000000000010:7",
+        "expr": [
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "payload": {
+                  "protocol": "ip",
+                  "field": "saddr"
+                }
+              },
+              "right": "192.0.2.2"
+            }
+          },
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "payload": {
+                  "protocol": "ip",
+                  "field": "daddr"
+                }
+              },
+              "right": "192.0.2.50"
+            }
+          },
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "payload": {
+                  "protocol": "tcp",
+                  "field": "sport"
+                }
+              },
+              "right": 22
+            }
+          },
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "payload": {
+                  "protocol": "tcp",
+                  "field": "dport"
+                }
+              },
+              "right": 55000
+            }
+          },
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "ct": {
+                  "key": "state"
+                }
+              },
+              "right": 2
+            }
+          },
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "meta": {
+                  "key": "oif"
+                }
+              },
+              "right": "eth0"
+            }
+          },
+          {
+            "return": null
+          }
+        ]
+      }
+    },
+    {
+      "rule": {
+        "family": "inet",
+        "table": "automations_host_tor",
+        "chain": "local_nat",
+        "comment": "automations-host-tor:00000000-0000-4000-8000-000000000010:9",
+        "expr": [
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "meta": {
+                  "key": "skuid"
+                }
+              },
+              "right": 60001
+            }
+          },
+          {
+            "return": null
+          }
+        ]
+      }
+    },
+    {
+      "rule": {
+        "family": "inet",
+        "table": "automations_host_tor",
+        "chain": "local_nat",
+        "comment": "automations-host-tor:00000000-0000-4000-8000-000000000010:10",
+        "expr": [
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "payload": {
+                  "protocol": "ip",
+                  "field": "daddr"
+                }
+              },
+              "right": {
+                "prefix": {
+                  "addr": "127.0.0.0",
+                  "len": 8
+                }
+              }
+            }
+          },
+          {
+            "return": null
+          }
+        ]
+      }
+    },
+    {
+      "rule": {
+        "family": "inet",
+        "table": "automations_host_tor",
+        "chain": "local_nat",
+        "comment": "automations-host-tor:00000000-0000-4000-8000-000000000010:11",
+        "expr": [
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "payload": {
+                  "protocol": "ip6",
+                  "field": "daddr"
+                }
+              },
+              "right": "::1"
+            }
+          },
+          {
+            "return": null
+          }
+        ]
+      }
+    },
+    {
+      "rule": {
+        "family": "inet",
+        "table": "automations_host_tor",
+        "chain": "local_nat",
+        "comment": "automations-host-tor:00000000-0000-4000-8000-000000000010:12",
+        "expr": [
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "meta": {
+                  "key": "nfproto"
+                }
+              },
+              "right": 2
+            }
+          },
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "payload": {
+                  "protocol": "tcp",
+                  "field": "dport"
+                }
+              },
+              "right": 53
+            }
+          },
+          {
+            "drop": null
+          }
+        ]
+      }
+    },
+    {
+      "rule": {
+        "family": "inet",
+        "table": "automations_host_tor",
+        "chain": "local_nat",
+        "comment": "automations-host-tor:00000000-0000-4000-8000-000000000010:13",
+        "expr": [
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "meta": {
+                  "key": "nfproto"
+                }
+              },
+              "right": 2
+            }
+          },
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "payload": {
+                  "protocol": "udp",
+                  "field": "dport"
+                }
+              },
+              "right": 53
+            }
+          },
+          {
+            "mangle": {
+              "key": {
+                "ct": {
+                  "key": "mark"
+                }
+              },
+              "value": {
+                "|": [
+                  {
+                    "ct": {
+                      "key": "mark"
+                    }
+                  },
+                  33554432
+                ]
+              }
+            }
+          },
+          {
+            "dnat": {
+              "family": "ip",
+              "addr": "127.0.0.1",
+              "port": 19053
+            }
+          }
+        ]
+      }
+    },
+    {
+      "rule": {
+        "family": "inet",
+        "table": "automations_host_tor",
+        "chain": "local_nat",
+        "comment": "automations-host-tor:00000000-0000-4000-8000-000000000010:14",
+        "expr": [
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "meta": {
+                  "key": "nfproto"
+                }
+              },
+              "right": 10
+            }
+          },
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "payload": {
+                  "protocol": "tcp",
+                  "field": "dport"
+                }
+              },
+              "right": 53
+            }
+          },
+          {
+            "drop": null
+          }
+        ]
+      }
+    },
+    {
+      "rule": {
+        "family": "inet",
+        "table": "automations_host_tor",
+        "chain": "local_nat",
+        "comment": "automations-host-tor:00000000-0000-4000-8000-000000000010:15",
+        "expr": [
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "meta": {
+                  "key": "nfproto"
+                }
+              },
+              "right": 10
+            }
+          },
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "payload": {
+                  "protocol": "udp",
+                  "field": "dport"
+                }
+              },
+              "right": 53
+            }
+          },
+          {
+            "mangle": {
+              "key": {
+                "ct": {
+                  "key": "mark"
+                }
+              },
+              "value": {
+                "|": [
+                  {
+                    "ct": {
+                      "key": "mark"
+                    }
+                  },
+                  33554432
+                ]
+              }
+            }
+          },
+          {
+            "dnat": {
+              "family": "ip6",
+              "addr": "::1",
+              "port": 19053
+            }
+          }
+        ]
+      }
+    },
+    {
+      "rule": {
+        "family": "inet",
+        "table": "automations_host_tor",
+        "chain": "local_nat",
+        "comment": "automations-host-tor:00000000-0000-4000-8000-000000000010:16",
+        "expr": [
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "meta": {
+                  "key": "nfproto"
+                }
+              },
+              "right": 2
+            }
+          },
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "meta": {
+                  "key": "l4proto"
+                }
+              },
+              "right": 6
+            }
+          },
+          {
+            "mangle": {
+              "key": {
+                "ct": {
+                  "key": "mark"
+                }
+              },
+              "value": {
+                "|": [
+                  {
+                    "ct": {
+                      "key": "mark"
+                    }
+                  },
+                  33554432
+                ]
+              }
+            }
+          },
+          {
+            "dnat": {
+              "family": "ip",
+              "addr": "127.0.0.1",
+              "port": 19040
+            }
+          }
+        ]
+      }
+    },
+    {
+      "rule": {
+        "family": "inet",
+        "table": "automations_host_tor",
+        "chain": "input_guard",
+        "comment": "automations-host-tor:00000000-0000-4000-8000-000000000010:17",
+        "expr": [
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "meta": {
+                  "key": "iifname"
+                }
+              },
+              "right": "lo"
+            }
+          },
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "payload": {
+                  "protocol": "tcp",
+                  "field": "dport"
+                }
+              },
+              "right": 19050
+            }
+          },
+          {
+            "accept": null
+          }
+        ]
+      }
+    },
+    {
+      "rule": {
+        "family": "inet",
+        "table": "automations_host_tor",
+        "chain": "input_guard",
+        "comment": "automations-host-tor:00000000-0000-4000-8000-000000000010:18",
+        "expr": [
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "payload": {
+                  "protocol": "tcp",
+                  "field": "dport"
+                }
+              },
+              "right": {
+                "set": [
+                  19040,
+                  19050,
+                  19053
+                ]
+              }
+            }
+          },
+          {
+            "drop": null
+          }
+        ]
+      }
+    },
+    {
+      "rule": {
+        "family": "inet",
+        "table": "automations_host_tor",
+        "chain": "input_guard",
+        "comment": "automations-host-tor:00000000-0000-4000-8000-000000000010:19",
+        "expr": [
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "payload": {
+                  "protocol": "udp",
+                  "field": "dport"
+                }
+              },
+              "right": {
+                "set": [
+                  19040,
+                  19050,
+                  19053
+                ]
+              }
+            }
+          },
+          {
+            "drop": null
+          }
+        ]
+      }
+    },
+    {
+      "rule": {
+        "family": "inet",
+        "table": "automations_host_tor",
+        "chain": "output_guard",
+        "comment": "automations-host-tor:00000000-0000-4000-8000-000000000010:8",
+        "expr": [
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "payload": {
+                  "protocol": "ip",
+                  "field": "saddr"
+                }
+              },
+              "right": "192.0.2.2"
+            }
+          },
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "payload": {
+                  "protocol": "ip",
+                  "field": "daddr"
+                }
+              },
+              "right": "192.0.2.50"
+            }
+          },
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "payload": {
+                  "protocol": "tcp",
+                  "field": "sport"
+                }
+              },
+              "right": 22
+            }
+          },
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "payload": {
+                  "protocol": "tcp",
+                  "field": "dport"
+                }
+              },
+              "right": 55000
+            }
+          },
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "ct": {
+                  "key": "state"
+                }
+              },
+              "right": 2
+            }
+          },
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "meta": {
+                  "key": "oif"
+                }
+              },
+              "right": "eth0"
+            }
+          },
+          {
+            "accept": null
+          }
+        ]
+      }
+    },
+    {
+      "rule": {
+        "family": "inet",
+        "table": "automations_host_tor",
+        "chain": "output_guard",
+        "comment": "automations-host-tor:00000000-0000-4000-8000-000000000010:20",
+        "expr": [
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "meta": {
+                  "key": "oifname"
+                }
+              },
+              "right": "lo"
+            }
+          },
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "meta": {
+                  "key": "skuid"
+                }
+              },
+              "right": 0
+            }
+          },
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "payload": {
+                  "protocol": "ip",
+                  "field": "daddr"
+                }
+              },
+              "right": "127.0.0.1"
+            }
+          },
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "payload": {
+                  "protocol": "tcp",
+                  "field": "dport"
+                }
+              },
+              "right": 19050
+            }
+          },
+          {
+            "accept": null
+          }
+        ]
+      }
+    },
+    {
+      "rule": {
+        "family": "inet",
+        "table": "automations_host_tor",
+        "chain": "output_guard",
+        "comment": "automations-host-tor:00000000-0000-4000-8000-000000000010:21",
+        "expr": [
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "payload": {
+                  "protocol": "tcp",
+                  "field": "dport"
+                }
+              },
+              "right": 19050
+            }
+          },
+          {
+            "drop": null
+          }
+        ]
+      }
+    },
+    {
+      "rule": {
+        "family": "inet",
+        "table": "automations_host_tor",
+        "chain": "output_guard",
+        "comment": "automations-host-tor:00000000-0000-4000-8000-000000000010:22",
+        "expr": [
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "payload": {
+                  "protocol": "tcp",
+                  "field": "dport"
+                }
+              },
+              "right": {
+                "set": [
+                  19040,
+                  19053
+                ]
+              }
+            }
+          },
+          {
+            "drop": null
+          }
+        ]
+      }
+    },
+    {
+      "rule": {
+        "family": "inet",
+        "table": "automations_host_tor",
+        "chain": "output_guard",
+        "comment": "automations-host-tor:00000000-0000-4000-8000-000000000010:23",
+        "expr": [
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "payload": {
+                  "protocol": "udp",
+                  "field": "dport"
+                }
+              },
+              "right": {
+                "set": [
+                  19040,
+                  19053
+                ]
+              }
+            }
+          },
+          {
+            "drop": null
+          }
+        ]
+      }
+    },
+    {
+      "rule": {
+        "family": "inet",
+        "table": "automations_host_tor",
+        "chain": "output_guard",
+        "comment": "automations-host-tor:00000000-0000-4000-8000-000000000010:24",
+        "expr": [
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "meta": {
+                  "key": "oifname"
+                }
+              },
+              "right": "lo"
+            }
+          },
+          {
+            "accept": null
+          }
+        ]
+      }
+    },
+    {
+      "rule": {
+        "family": "inet",
+        "table": "automations_host_tor",
+        "chain": "output_guard",
+        "comment": "automations-host-tor:00000000-0000-4000-8000-000000000010:25",
+        "expr": [
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "meta": {
+                  "key": "oif"
+                }
+              },
+              "right": "eth0"
+            }
+          },
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "payload": {
+                  "protocol": "udp",
+                  "field": "sport"
+                }
+              },
+              "right": 68
+            }
+          },
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "payload": {
+                  "protocol": "udp",
+                  "field": "dport"
+                }
+              },
+              "right": 67
+            }
+          },
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "payload": {
+                  "protocol": "ip",
+                  "field": "saddr"
+                }
+              },
+              "right": {
+                "set": [
+                  "0.0.0.0",
+                  "192.0.2.2"
+                ]
+              }
+            }
+          },
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "payload": {
+                  "protocol": "ip",
+                  "field": "daddr"
+                }
+              },
+              "right": {
+                "set": [
+                  "192.0.2.1",
+                  "255.255.255.255"
+                ]
+              }
+            }
+          },
+          {
+            "accept": null
+          }
+        ]
+      }
+    },
+    {
+      "rule": {
+        "family": "inet",
+        "table": "automations_host_tor",
+        "chain": "output_guard",
+        "comment": "automations-host-tor:00000000-0000-4000-8000-000000000010:26",
+        "expr": [
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "meta": {
+                  "key": "skuid"
+                }
+              },
+              "right": 60001
+            }
+          },
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "payload": {
+                  "protocol": "tcp",
+                  "field": "dport"
+                }
+              },
+              "right": 53
+            }
+          },
+          {
+            "drop": null
+          }
+        ]
+      }
+    },
+    {
+      "rule": {
+        "family": "inet",
+        "table": "automations_host_tor",
+        "chain": "output_guard",
+        "comment": "automations-host-tor:00000000-0000-4000-8000-000000000010:27",
+        "expr": [
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "meta": {
+                  "key": "skuid"
+                }
+              },
+              "right": 60001
+            }
+          },
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "meta": {
+                  "key": "oif"
+                }
+              },
+              "right": "eth0"
+            }
+          },
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "payload": {
+                  "protocol": "ip",
+                  "field": "saddr"
+                }
+              },
+              "right": "192.0.2.2"
+            }
+          },
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "meta": {
+                  "key": "l4proto"
+                }
+              },
+              "right": 6
+            }
+          },
+          {
+            "accept": null
+          }
+        ]
+      }
+    }
+  ]
+}

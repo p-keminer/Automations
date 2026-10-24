@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "id": "auto-cli",
+  "version": "0.2.0",
+  "name": "Automations command entry point",
+  "description": "Dispatch installed commands and provide Bash/Zsh completion from metadata without executing module code.",
+  "default_enabled": false,
+  "targets": {
+    "distributions": [
+      "kali",
+      "debian"
+    ],
+    "architectures": [
+      "arm64",
+      "amd64",
+      "armhf"
+    ]
+  },
+  "packages": [
+    "python3",
+    "bash",
+    "bash-completion",
+    "zsh"
+  ],
+  "files": [
+    {
+      "source": "common/components/auto-cli/files/auto-launcher.sh",
+      "destination": "usr/bin/auto",
+      "mode": "0755"
+    },
+    {
+      "source": "common/python/auto.py",
+      "destination": "usr/local/bin/auto",
+      "mode": "0755"
+    },
+    {
+      "source": "common/shell/bash/auto-completion.sh",
+      "destination": "etc/bash_completion.d/auto",
+      "mode": "0644"
+    },
+    {
+      "source": "common/docs/de/auto-cli.txt",
+      "destination": "usr/local/share/automations/help/docs/de/auto-cli.txt",
+      "mode": "0644"
+    },
+    {
+      "source": "common/docs/en/auto-cli.txt",
+      "destination": "usr/local/share/automations/help/docs/en/auto-cli.txt",
+      "mode": "0644"
+    },
+    {
+      "source": "common/python/adapter_selection.py",
+      "destination": "usr/local/libexec/automations-support/adapter_selection.py",
+      "mode": "0644"
+    },
+    {
+      "source": "common/python/auto_completion.py",
+      "destination": "usr/local/libexec/automations-support/completion.py",
+      "mode": "0755"
+    },
+    {
+      "source": "common/shell/zsh/_auto",
+      "destination": "usr/local/share/zsh/site-functions/_auto",
+      "mode": "0644"
+    },
+    {
+      "source": "common/python/platform_support.py",
+      "destination": "usr/local/libexec/automations-support/platform_support.py",
+      "mode": "0644"
+    }
+  ]
+}

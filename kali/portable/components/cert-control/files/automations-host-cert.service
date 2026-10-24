@@ -1,0 +1,24 @@
+[Unit]
+Description=Automations host public CA download (optional)
+After=network.target
+
+[Service]
+Type=notify
+NotifyAccess=main
+DynamicUser=yes
+ExecStart=/usr/bin/python3 -B /usr/local/libexec/automations-host/cert --internal-serve
+LoadCredential=server.key:/etc/automations/host-cert/server.key
+TimeoutStartSec=20
+TimeoutStopSec=10
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

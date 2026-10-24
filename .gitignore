@@ -10,12 +10,7 @@ venv/
 /build/
 /private/
 
-# Local proxy prototype retained for reference; not part of the repository.
-/kali/components/proxy-control/
-/kali/python/auto_proxy.py
-/kali/python/proxy_transport.py
-/kali/python/docs/de/proxy-control.txt
-/kali/python/docs/en/proxy-control.txt
+# Existing local prototypes remain under the ignored private directory.
 
 # Local outputs of the Kali collection.
 /kali/dist/

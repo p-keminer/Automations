@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "id": "fan-control",
+  "version": "0.1.0",
+  "name": "Pi4 case fan control",
+  "description": "Native temperature-based control or exclusive GPIO14 OFF for the official Pi4 case fan, with persistent mode and verified status.",
+  "default_enabled": false,
+  "targets": {
+    "distributions": [
+      "kali"
+    ],
+    "architectures": [
+      "arm64"
+    ]
+  },
+  "packages": [
+    "python3",
+    "python3-libgpiod"
+  ],
+  "files": [
+    {
+      "source": "pi4/python/auto_fan.py",
+      "destination": "usr/local/libexec/automations/fan",
+      "mode": "0755"
+    },
+    {
+      "source": "pi4/python/fan_off.py",
+      "destination": "usr/local/libexec/automations-support/fan-off",
+      "mode": "0755"
+    },
+    {
+      "source": "pi4/components/fan-control/files/automations-fan-off.service",
+      "destination": "etc/systemd/system/automations-fan-off.service",
+      "mode": "0644"
+    },
+    {
+      "source": "common/components/fan-control/files/completion",
+      "destination": "usr/local/share/automations/completions/fan",
+      "mode": "0644"
+    },
+    {
+      "source": "common/docs/de/fan-control.txt",
+      "destination": "usr/local/share/automations/help/docs/de/fan-control.txt",
+      "mode": "0644"
+    },
+    {
+      "source": "common/docs/en/fan-control.txt",
+      "destination": "usr/local/share/automations/help/docs/en/fan-control.txt",
+      "mode": "0644"
+    }
+  ]
+}

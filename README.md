@@ -32,10 +32,12 @@ oder Komponente beschrieben.
 | Pfad | Vorhandener Inhalt |
 |---|---|
 | [kali/](kali/) | Bisherige Linux-/Kali-Sammlung mit den folgenden Unterordnern |
-| [kali/shell/bash/](kali/shell/bash/) | Bash-Skripte und Bash-Vervollständigung |
-| [kali/shell/zsh/](kali/shell/zsh/) | Zsh-Vervollständigung |
-| [kali/python/](kali/python/) | Python-Skripte, Runtime und TXT-Hilfen |
-| [kali/components/](kali/components/) | Paketmanifeste, Komponenten-Anleitungen und Tests |
+| [kali/common/shell/bash/](kali/common/shell/bash/) | Bash-Skripte und Bash-Vervollständigung |
+| [kali/common/shell/zsh/](kali/common/shell/zsh/) | Zsh-Vervollständigung |
+| [kali/common/](kali/common/) | Gemeinsamer CLI-Einstieg, Bibliotheken, Shell-Vervollständigung und TXT-Hilfen |
+| [kali/pi4/](kali/pi4/) | Pi4-Steuerlogik, Dienste und zugehörige Tests |
+| [kali/portable/](kali/portable/) | Portable Kali-Backends, Bereitstellung und zugehörige Tests |
+| [kali/common/components/](kali/common/components/) | Paketmanifeste, Komponenten-Anleitungen und Tests |
 | [kali/tools/](kali/tools/) | Werkzeuge für Katalogprüfung und Paketbau |
 | [kali/tests/](kali/tests/) | Tests des gemeinsamen Komponentenwerkzeugs |
 | [.github/](.github/) | Automatische Prüfungen |
@@ -54,11 +56,11 @@ Netzwerk und Raspberry Pi.
 
 | Bereich | Vorhandene Komponenten |
 |---|---|
-| Gemeinsamer CLI-Einstieg | [auto-cli](kali/components/auto-cli/README.md) mit separater Vervollständigung für [Bash](kali/shell/bash/auto-completion.sh) und [Zsh](kali/shell/zsh/_auto) |
-| WLAN und Netzwerk | [wifi-control](kali/components/wifi-control/README.md), [share-control](kali/components/share-control/README.md), [ap-control](kali/components/ap-control/README.md), [hotspot-control](kali/components/hotspot-control/README.md) |
-| Zugriff und Zertifikate | [ssh-control](kali/components/ssh-control/README.md), [cert-control](kali/components/cert-control/README.md) |
-| Tor und Routing | [tor-control](kali/components/tor-control/README.md), [anonymity-runtime](kali/components/anonymity-runtime/README.md) |
-| Hardware | [awus036acm](kali/components/awus036acm/README.md), [fan-control](kali/components/fan-control/README.md) |
+| Gemeinsamer CLI-Einstieg | [auto-cli](kali/common/components/auto-cli/README.md) mit separater Vervollständigung für [Bash](kali/common/shell/bash/auto-completion.sh) und [Zsh](kali/common/shell/zsh/_auto) |
+| WLAN und Netzwerk | [wifi-control](kali/common/components/wifi-control/README.md), [share-control](kali/common/components/share-control/README.md), [ap-control](kali/common/components/ap-control/README.md), [hotspot-control](kali/common/components/hotspot-control/README.md) |
+| Zugriff und Zertifikate | [ssh-control](kali/common/components/ssh-control/README.md), [cert-control](kali/common/components/cert-control/README.md) |
+| Tor und Routing | [tor-control](kali/common/components/tor-control/README.md), [anonymity-runtime](kali/common/components/anonymity-runtime/README.md) |
+| Hardware | [awus036acm](kali/common/components/awus036acm/README.md), [fan-control](kali/common/components/fan-control/README.md) |
 
 Die Detailanleitungen enthalten Voraussetzungen, Befehle und Grenzen.
 Die vorhandenen Netzwerkmodule erwarten die dafür eingerichtete
@@ -159,10 +161,12 @@ environment.
 | Path | Existing contents |
 |---|---|
 | [kali/](kali/) | Existing Linux/Kali collection with the subdirectories below |
-| [kali/shell/bash/](kali/shell/bash/) | Bash scripts and Bash completion |
-| [kali/shell/zsh/](kali/shell/zsh/) | Zsh completion |
-| [kali/python/](kali/python/) | Python scripts, runtime and TXT help |
-| [kali/components/](kali/components/) | Package manifests, component instructions and tests |
+| [kali/common/shell/bash/](kali/common/shell/bash/) | Bash scripts and Bash completion |
+| [kali/common/shell/zsh/](kali/common/shell/zsh/) | Zsh completion |
+| [kali/common/](kali/common/) | Shared CLI entry point, libraries, shell completion and TXT help |
+| [kali/pi4/](kali/pi4/) | Pi4 control logic, services and their tests |
+| [kali/portable/](kali/portable/) | Portable Kali backends, deployment and their tests |
+| [kali/common/components/](kali/common/components/) | Package manifests, component instructions and tests |
 | [kali/tools/](kali/tools/) | Catalog validation and packaging tools |
 | [kali/tests/](kali/tests/) | Tests for the shared component tooling |
 | [.github/](.github/) | Automated checks |
@@ -181,11 +185,11 @@ networking and Raspberry Pi.
 
 | Area | Existing components |
 |---|---|
-| Shared CLI entry point | [auto-cli](kali/components/auto-cli/README.md) with separate completion for [Bash](kali/shell/bash/auto-completion.sh) and [Zsh](kali/shell/zsh/_auto) |
-| Wi-Fi and networking | [wifi-control](kali/components/wifi-control/README.md), [share-control](kali/components/share-control/README.md), [ap-control](kali/components/ap-control/README.md), [hotspot-control](kali/components/hotspot-control/README.md) |
-| Access and certificates | [ssh-control](kali/components/ssh-control/README.md), [cert-control](kali/components/cert-control/README.md) |
-| Tor and routing | [tor-control](kali/components/tor-control/README.md), [anonymity-runtime](kali/components/anonymity-runtime/README.md) |
-| Hardware | [awus036acm](kali/components/awus036acm/README.md), [fan-control](kali/components/fan-control/README.md) |
+| Shared CLI entry point | [auto-cli](kali/common/components/auto-cli/README.md) with separate completion for [Bash](kali/common/shell/bash/auto-completion.sh) and [Zsh](kali/common/shell/zsh/_auto) |
+| Wi-Fi and networking | [wifi-control](kali/common/components/wifi-control/README.md), [share-control](kali/common/components/share-control/README.md), [ap-control](kali/common/components/ap-control/README.md), [hotspot-control](kali/common/components/hotspot-control/README.md) |
+| Access and certificates | [ssh-control](kali/common/components/ssh-control/README.md), [cert-control](kali/common/components/cert-control/README.md) |
+| Tor and routing | [tor-control](kali/common/components/tor-control/README.md), [anonymity-runtime](kali/common/components/anonymity-runtime/README.md) |
+| Hardware | [awus036acm](kali/common/components/awus036acm/README.md), [fan-control](kali/common/components/fan-control/README.md) |
 
 The detailed instructions describe requirements, commands and limitations.
 The existing network modules expect the Kali/Pi4 environment configured

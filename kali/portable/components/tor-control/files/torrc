@@ -1,0 +1,19 @@
+# Managed optional VM Tor client. No relay or exit service.
+ClientOnly 1
+ConfluxEnabled 0
+RunAsDaemon 0
+DataDirectory /var/lib/automations-tor
+ControlSocket /run/automations-tor/control
+CookieAuthentication 1
+CookieAuthFile /run/automations-tor/control.authcookie
+SocksPort 127.0.0.1:19050
+TransPort 0.0.0.0:19040
+DNSPort 0.0.0.0:19053
+DNSPort [::1]:19053
+ClientUseIPv4 1
+ClientUseIPv6 0
+ClientRejectInternalAddresses 1
+ClientDNSRejectInternalAddresses 1
+SafeSocks 1
+SafeLogging 1
+Log notice stdout

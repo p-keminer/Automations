@@ -1,0 +1,170 @@
+{
+  "provenance": {
+    "source": "host-tor-native-route-diff.json",
+    "source_sha256": "dee050e1572cad4b5c33dbe1beb02b3c96a7b24fc755b72b5f916fcaec8ffcd4",
+    "sanitization": "Only endpoint/receipt identities are neutralized; native numeric strings, uid_start/uid_end fields, empty flags, ordering and route structures are unchanged."
+  },
+  "state": {
+    "boot_id": "00000000-0000-4000-8000-000000000001",
+    "format": "AUTOMATIONS_HOST_TOR.v1",
+    "management": [
+      {
+        "destination": "192.0.2.50",
+        "destination_port": 55000,
+        "source": "192.0.2.2",
+        "source_port": 22
+      }
+    ],
+    "management_networks": [
+      "192.0.2.0/24"
+    ],
+    "mode": "tor",
+    "netns": "net:[4026531992]",
+    "pending": null,
+    "phase": "blocked",
+    "profile_identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "run_id": "00000000-0000-4000-8000-000000000011",
+    "selection": {
+      "clients": [],
+      "dns": [
+        "192.0.2.1"
+      ],
+      "gateway": "192.0.2.1",
+      "mode": "lan",
+      "uplink": {
+        "address": "192.0.2.2",
+        "device_path": "sys/devices/eth0",
+        "ifindex": 2,
+        "mac": "02:00:00:00:00:02",
+        "name": "eth0",
+        "network": "192.0.2.0/24",
+        "wireless": false
+      }
+    },
+    "share_run_id": null,
+    "ssh_port": 22,
+    "uid": 60001
+  },
+  "rules": [
+    {
+      "priority": 0,
+      "src": "all",
+      "table": "255"
+    },
+    {
+      "priority": 10426,
+      "src": "all",
+      "uid_start": 60001,
+      "uid_end": 60001,
+      "table": "51828",
+      "protocol": "187"
+    },
+    {
+      "priority": 32766,
+      "src": "all",
+      "table": "254"
+    },
+    {
+      "priority": 32767,
+      "src": "all",
+      "table": "253"
+    }
+  ],
+  "routes": [
+    {
+      "dst": "default",
+      "gateway": "192.0.2.1",
+      "dev": "eth0",
+      "table": "51828",
+      "protocol": "187",
+      "prefsrc": "192.0.2.2",
+      "metric": 100,
+      "flags": []
+    },
+    {
+      "type": "7",
+      "dst": "default",
+      "table": "51828",
+      "protocol": "187",
+      "metric": 42760,
+      "flags": []
+    },
+    {
+      "dst": "192.0.2.0/24",
+      "dev": "eth0",
+      "table": "51828",
+      "protocol": "187",
+      "scope": "253",
+      "prefsrc": "192.0.2.2",
+      "flags": []
+    },
+    {
+      "dst": "default",
+      "gateway": "192.0.2.1",
+      "dev": "eth0",
+      "protocol": "16",
+      "prefsrc": "192.0.2.2",
+      "metric": 100,
+      "flags": []
+    },
+    {
+      "dst": "192.0.2.0/24",
+      "dev": "eth0",
+      "protocol": "2",
+      "scope": "253",
+      "prefsrc": "192.0.2.2",
+      "metric": 100,
+      "flags": []
+    },
+    {
+      "type": "2",
+      "dst": "127.0.0.0/8",
+      "dev": "lo",
+      "table": "255",
+      "protocol": "2",
+      "scope": "254",
+      "prefsrc": "127.0.0.1",
+      "flags": []
+    },
+    {
+      "type": "2",
+      "dst": "127.0.0.1",
+      "dev": "lo",
+      "table": "255",
+      "protocol": "2",
+      "scope": "254",
+      "prefsrc": "127.0.0.1",
+      "flags": []
+    },
+    {
+      "type": "3",
+      "dst": "127.255.255.255",
+      "dev": "lo",
+      "table": "255",
+      "protocol": "2",
+      "scope": "253",
+      "prefsrc": "127.0.0.1",
+      "flags": []
+    },
+    {
+      "type": "2",
+      "dst": "192.0.2.2",
+      "dev": "eth0",
+      "table": "255",
+      "protocol": "2",
+      "scope": "254",
+      "prefsrc": "192.0.2.2",
+      "flags": []
+    },
+    {
+      "type": "3",
+      "dst": "192.0.2.255",
+      "dev": "eth0",
+      "table": "255",
+      "protocol": "2",
+      "scope": "253",
+      "prefsrc": "192.0.2.2",
+      "flags": []
+    }
+  ]
+}

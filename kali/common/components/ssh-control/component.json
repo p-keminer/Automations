@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "id": "ssh-control",
+  "version": "0.2.0",
+  "name": "Pi4 direct SSH control",
+  "description": "Control-network-only SSH switching and selective direct-connection termination, preserving Guacamole sessions.",
+  "default_enabled": false,
+  "targets": {
+    "distributions": [
+      "kali"
+    ],
+    "architectures": [
+      "arm64",
+      "amd64"
+    ]
+  },
+  "packages": [
+    "python3",
+    "openssh-server",
+    "nftables",
+    "systemd",
+    "iproute2"
+  ],
+  "files": [
+    {
+      "source": "pi4/python/auto_ssh.py",
+      "destination": "usr/local/libexec/automations/ssh",
+      "mode": "0755"
+    },
+    {
+      "source": "common/completions/toggle",
+      "destination": "usr/local/share/automations/completions/ssh",
+      "mode": "0644"
+    },
+    {
+      "source": "common/docs/de/ssh-control.txt",
+      "destination": "usr/local/share/automations/help/docs/de/ssh-control.txt",
+      "mode": "0644"
+    },
+    {
+      "source": "common/docs/en/ssh-control.txt",
+      "destination": "usr/local/share/automations/help/docs/en/ssh-control.txt",
+      "mode": "0644"
+    },
+    {
+      "source": "portable/python/host_ssh.py",
+      "destination": "usr/local/libexec/automations-host/ssh",
+      "mode": "0755"
+    }
+  ],
+  "requires": [
+    "auto-cli"
+  ],
+  "minimum_versions": {
+    "auto-cli": "0.2.0"
+  }
+}

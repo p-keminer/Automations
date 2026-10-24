@@ -5,6 +5,7 @@ import gzip
 import hashlib
 import io
 import json
+import os
 from pathlib import Path, PurePosixPath
 import re
 import subprocess
@@ -16,13 +17,13 @@ ROOT = Path(__file__).resolve().parents[1]
 ID = re.compile(r"[a-z][a-z0-9]*(?:-[a-z0-9]+)*")
 VERSION = re.compile(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)")
 AUTO_LAUNCHER = "usr/bin/auto"
-AUTO_LAUNCHER_SOURCE = "components/auto-cli/files/auto-launcher.sh"
+AUTO_LAUNCHER_SOURCE = "common/components/auto-cli/files/auto-launcher.sh"
 AUTO_LAUNCHER_CONTENT = b'#!/bin/sh\nexec /usr/local/bin/auto "$@"\n'
 # Retained local experiments are neither release components nor CI inputs.
 LOCAL_ONLY_COMPONENTS = frozenset({"proxy-control"})
 LOCAL_ONLY_SOURCES = frozenset({
-    "python/auto_proxy.py", "python/proxy_transport.py",
-    "python/docs/de/proxy-control.txt", "python/docs/en/proxy-control.txt",
+    "common/python/auto_proxy.py", "common/python/proxy_transport.py",
+    "common/docs/de/proxy-control.txt", "common/docs/en/proxy-control.txt",
 })
 
 
@@ -74,16 +75,22 @@ def string_list(value, label, pattern=None, nonempty=True):
         require(all(re.fullmatch(pattern, item) for item in value), f"Invalid entry: {label}")
 
 
+
+def test_directories(root, identifier):
+    return [path for group in ("common", "pi4", "portable")
+            if (path := Path(root) / group / "components" / identifier / "tests").is_dir()]
+
+
 def load_components(root=ROOT):
     root = Path(root).resolve()
-    folder = root / "components"
+    folder = root / "common/components"
     require(folder.is_dir() and not folder.is_symlink(), "Component directory is missing or is a symlink.")
     result = {}
     for component_dir in sorted(folder.iterdir()):
         if component_dir.name in LOCAL_ONLY_COMPONENTS or not component_dir.is_dir():
             continue
         require(not component_dir.is_symlink(), "Component directory must not be a symlink.")
-        path = regular_file(root, f"components/{component_dir.name}/component.json")
+        path = regular_file(root, f"common/components/{component_dir.name}/component.json")
         data = json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=unique_object)
         require(isinstance(data, dict), "Manifest must be a JSON object.")
         required = {"schema_version", "id", "version", "name", "description", "default_enabled", "targets", "packages", "files"}
@@ -120,7 +127,8 @@ def load_components(root=ROOT):
         for item in data["files"]:
             require(isinstance(item, dict) and set(item) == {"source", "destination", "mode"}, "Invalid file mapping.")
             source = relative_path(item["source"]).as_posix()
-            require(source.startswith(("python/", "shell/bash/", "shell/zsh/", f"components/{identifier}/files/")), "Source is outside the payload directories.")
+            require(source.startswith(("common/python/", "pi4/python/", "portable/python/", "common/completions/", "common/docs/", "common/shell/bash/", "common/shell/zsh/",
+                    *(f"{group}/components/{identifier}/files/" for group in ("common", "pi4", "portable")))), "Source is outside the payload directories.")
             require(source not in LOCAL_ONLY_SOURCES, "Local-only prototype files cannot be packaged.")
             regular_file(root, source)
             destination = relative_path(item["destination"]).as_posix()
@@ -141,7 +149,7 @@ def load_components(root=ROOT):
             documents = [item for item in data["files"] if item["destination"] == destination]
             require(len(documents) == 1, "Each component requires German and English TXT help.")
             document = documents[0]
-            require(document["source"] in (f"python/docs/{language}/{identifier}.txt", f"shell/bash/docs/{language}/{identifier}.txt")
+            require(document["source"] in (f"common/docs/{language}/{identifier}.txt", f"common/shell/bash/docs/{language}/{identifier}.txt")
                     and document["mode"] == "0644", "Invalid source or permissions for component help.")
             content = regular_file(root, document["source"]).read_bytes()
             require(len(content) <= 65536 and content.decode("utf-8").strip() and b"\0" not in content,
@@ -149,11 +157,13 @@ def load_components(root=ROOT):
         require(all(not item["destination"].startswith("usr/local/share/automations/help/docs/") or
                     item["destination"] in (f"usr/local/share/automations/help/docs/{lang}/{identifier}.txt" for lang in ("de", "en"))
                     for item in data["files"]), "A component may only provide its own help.")
-        regular_file(root, f"components/{identifier}/README.md")
-        tests = component_dir / "tests"
-        require(tests.is_dir() and not tests.is_symlink() and bool(list(tests.glob("test_*.py"))), "Component tests are missing.")
-        for test in tests.rglob("*"):
-            require(not test.is_symlink(), "Symlinks are not allowed in component tests.")
+        regular_file(root, f"common/components/{identifier}/README.md")
+        directories = test_directories(root, identifier)
+        require(any(list(directory.glob("test_*.py")) for directory in directories), "Component tests are missing.")
+        for tests in directories:
+            require(not tests.is_symlink(), "Component tests must not be symlinks.")
+            for test in tests.rglob("*"):
+                require(not test.is_symlink(), "Symlinks are not allowed in component tests.")
         result[identifier] = data
     require(bool(result), "No components found.")
     require(len(result) <= 256, "Too many components.")
@@ -184,12 +194,20 @@ def check_component(root, component):
         path = regular_file(root, item["source"])
         if path.suffix == ".py":
             compile(path.read_bytes(), str(path), "exec")
-        elif path.suffix == ".sh" or (item["source"].startswith("shell/bash/") and item["mode"] == "0755"):
+        elif path.suffix == ".sh" or (item["source"].startswith("common/shell/bash/") and item["mode"] == "0755"):
             subprocess.run(["bash", "-n", str(path)], check=True)
-    directory = root / "components" / component["id"] / "tests"
-    suite = unittest.TestLoader().discover(str(directory), pattern="test_*.py", top_level_dir=str(directory))
-    require(suite.countTestCases() > 0, "No runnable component tests found.")
-    require(unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful(), "Component tests failed.")
+    # Fixtures model root-managed files with explicit non-writable group bits.
+    # Keep their default creation permissions independent of the caller's umask.
+    previous_mask = os.umask(0o022)
+    try:
+        total = 0
+        for directory in test_directories(root, component["id"]):
+            suite = unittest.TestLoader().discover(str(directory), pattern="test_*.py", top_level_dir=str(directory))
+            total += suite.countTestCases()
+            require(unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful(), "Component tests failed.")
+        require(total > 0, "No runnable component tests found.")
+    finally:
+        os.umask(previous_mask)
 
 
 def archive_manifest(component):
@@ -197,6 +215,13 @@ def archive_manifest(component):
     exported = {**component, "files": []}
     for item in component["files"]:
         source = item["source"]
+        prefix, _, relative = source.partition("/")
+        if prefix in ("common", "pi4", "portable"):
+            source = relative
+        if source.startswith("completions/"):
+            source = f"components/{component['id']}/files/completion"
+        if source.startswith("docs/"):
+            source = "python/" + source
         if source.startswith("python/"):
             source = "kali/" + source
         elif source.startswith("shell/bash/"):
@@ -212,7 +237,7 @@ def build_component(root, component, output):
     require(component["id"] not in LOCAL_ONLY_COMPONENTS, "Local-only component is excluded from checks and package builds.")
     exported = archive_manifest(component)
     entries = [("component.json", json_bytes(exported), 0o644),
-               ("README.md", regular_file(root, f"components/{component['id']}/README.md").read_bytes(), 0o644)]
+               ("README.md", regular_file(root, f"common/components/{component['id']}/README.md").read_bytes(), 0o644)]
     for item in component["files"]:
         entries.append(("payload/" + item["destination"], regular_file(root, item["source"]).read_bytes(), int(item["mode"], 8)))
     contents = {name: {"sha256": digest(data), "size": len(data), "mode": f"{mode:04o}"} for name, data, mode in entries}

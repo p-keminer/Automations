@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "anonymity-runtime",
+  "version": "0.1.7",
+  "name": "Tor egress guard",
+  "description": "Optional serialized fail-closed routing and DNS interception for Tor over an explicitly selected share uplink.",
+  "default_enabled": false,
+  "targets": {
+    "distributions": [
+      "kali"
+    ],
+    "architectures": [
+      "arm64"
+    ]
+  },
+  "requires": [
+    "share-control",
+    "auto-cli"
+  ],
+  "packages": [
+    "python3",
+    "nftables",
+    "iproute2",
+    "conntrack",
+    "systemd"
+  ],
+  "files": [
+    {
+      "source": "pi4/python/egress.py",
+      "destination": "usr/local/libexec/automations-support/egress.py",
+      "mode": "0644"
+    },
+    {
+      "source": "common/docs/de/anonymity-runtime.txt",
+      "destination": "usr/local/share/automations/help/docs/de/anonymity-runtime.txt",
+      "mode": "0644"
+    },
+    {
+      "source": "common/docs/en/anonymity-runtime.txt",
+      "destination": "usr/local/share/automations/help/docs/en/anonymity-runtime.txt",
+      "mode": "0644"
+    }
+  ],
+  "minimum_versions": {
+    "auto-cli": "0.1.3",
+    "share-control": "0.1.10",
+    "ssh-control": "0.1.5"
+  }
+}

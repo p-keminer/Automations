@@ -1,4 +1,5 @@
 import copy
+import os
 import hashlib
 import importlib.util
 import json
@@ -7,6 +8,7 @@ from pathlib import Path
 import tarfile
 import tempfile
 import unittest
+from unittest.mock import patch
 
 SPEC = importlib.util.spec_from_file_location("component_tools", Path(__file__).resolve().parents[1] / "tools/components.py")
 tool = importlib.util.module_from_spec(SPEC)
@@ -18,20 +20,21 @@ class ComponentTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        self.folder = self.root / "components/demo"
+        self.folder = self.root / "common/components/demo"
         (self.folder / "tests").mkdir(parents=True)
-        (self.root / "python").mkdir(parents=True)
-        (self.root / "python/demo.py").write_text("print('demo')\n")
+        (self.root / "common/python").mkdir(parents=True)
+        (self.root / "common/python/demo.py").write_text("print('demo')\n")
         (self.folder / "README.md").write_text("Demo\n")
         (self.folder / "tests/test_demo.py").write_text("import unittest\n")
         self.data = {"schema_version": 1, "id": "demo", "version": "0.1.0", "name": "Demo", "description": "Example",
                      "default_enabled": False, "targets": {"distributions": ["kali"], "architectures": ["arm64"]},
-                     "packages": [], "files": [{"source": "python/demo.py", "destination": "usr/local/bin/demo", "mode": "0755"}]}
+                     "packages": [], "files": [{"source": "common/python/demo.py", "destination": "usr/local/bin/demo", "mode": "0755"}]}
         self.add_docs(self.data)
         self.save()
 
     def add_docs(self, data, category="python"):
         identifier = data["id"]
+        category = "common" if category == "python" else "common/" + category
         for language in ("de", "en"):
             source = f"{category}/docs/{language}/{identifier}.txt"
             target = self.root / source
@@ -47,6 +50,34 @@ class ComponentTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             tool.load_components(self.root)
 
+    def test_component_checks_normalize_fixture_umask_and_restore_caller(self):
+        for success in (True, False):
+            with self.subTest(success=success):
+                observations = []
+                class Result:
+                    def wasSuccessful(self):
+                        return success
+                def run_suite(suite):
+                    current = os.umask(0)
+                    os.umask(current)
+                    observations.append(current)
+                    return Result()
+                suite = unittest.TestSuite([unittest.FunctionTestCase(lambda: None)])
+                original = os.umask(0o007)
+                try:
+                    with patch.object(tool.unittest.TestLoader, 'discover', return_value=suite), \
+                            patch.object(tool.unittest.TextTestRunner, 'run', side_effect=run_suite):
+                        if success:
+                            tool.check_component(self.root, self.data)
+                        else:
+                            with self.assertRaisesRegex(ValueError, 'Component tests failed'):
+                                tool.check_component(self.root, self.data)
+                    restored = os.umask(0o007)
+                    self.assertEqual(restored, 0o007)
+                    self.assertEqual(observations, [0o022])
+                finally:
+                    os.umask(original)
+
     def test_valid_catalog(self):
         self.assertEqual(tool.load_components(self.root), {"demo": self.data})
 
@@ -56,7 +87,7 @@ class ComponentTests(unittest.TestCase):
     def test_legacy_and_foreign_sources_are_rejected_locally(self):
         for source in (
             "kali/python/demo.py", "kali/bash/demo.sh",
-            "shell/fish/demo.fish", "components/other/files/demo.py",
+            "shell/fish/demo.fish", "common/components/other/files/demo.py",
         ):
             with self.subTest(source=source):
                 target = self.root / source
@@ -68,7 +99,7 @@ class ComponentTests(unittest.TestCase):
                     tool.load_components(self.root)
 
     def test_local_proxy_prototype_is_preserved_but_not_discovered(self):
-        folder = self.root / "components/proxy-control"
+        folder = self.root / "common/components/proxy-control"
         folder.mkdir()
         prototype = folder / "component.json"
         prototype.write_text("unmaintained local prototype")
@@ -91,14 +122,14 @@ class ComponentTests(unittest.TestCase):
         self.assertFalse((self.root / "dist").exists())
 
     def test_active_component_cannot_package_local_proxy_script(self):
-        self.data["files"][0]["source"] = "python/auto_proxy.py"
-        (self.root / "python/auto_proxy.py").write_text("print('prototype')\n")
+        self.data["files"][0]["source"] = "common/python/auto_proxy.py"
+        (self.root / "common/python/auto_proxy.py").write_text("print('prototype')\n")
         self.save()
         with self.assertRaisesRegex(ValueError, "Local-only prototype"):
             tool.load_components(self.root)
 
     def configure_auto_cli(self):
-        folder = self.root / "components/auto-cli"
+        folder = self.root / "common/components/auto-cli"
         self.folder.rename(folder)
         self.folder = folder
         self.data["id"] = "auto-cli"
@@ -121,7 +152,7 @@ class ComponentTests(unittest.TestCase):
     def test_auto_launcher_rejects_other_source_destination_or_mode(self):
         self.configure_auto_cli()
         original = copy.deepcopy(self.data["files"][0])
-        for key, value in (("source", "python/demo.py"),
+        for key, value in (("source", "common/python/demo.py"),
                            ("destination", "usr/bin/other"), ("mode", "0644")):
             with self.subTest(key=key):
                 self.data["files"][0] = {**original, key: value}
@@ -144,14 +175,14 @@ class ComponentTests(unittest.TestCase):
     def test_source_escape_and_destination_escape(self):
         for key in ("source", "destination"):
             original = self.data["files"][0][key]
-            for value in ("/etc/passwd", "../secret", "python/../../secret", "C:\\secret", "etc//passwd"):
+            for value in ("/etc/passwd", "../secret", "common/python/../../secret", "C:\\secret", "etc//passwd"):
                 with self.subTest(key=key, value=value):
                     self.data["files"][0][key] = value
                     self.invalid()
             self.data["files"][0][key] = original
 
     def test_source_symlink_is_rejected(self):
-        script = self.root / "python/demo.py"
+        script = self.root / "common/python/demo.py"
         script.unlink()
         script.symlink_to(self.folder / "README.md")
         self.invalid()
@@ -183,7 +214,7 @@ class ComponentTests(unittest.TestCase):
             tool.load_components(self.root)
 
     def test_new_component_is_discovered_without_tool_changes(self):
-        second = self.root / "components/second"
+        second = self.root / "common/components/second"
         (second / "tests").mkdir(parents=True)
         (second / "tests/test_second.py").write_text("import unittest\n")
         (second / "README.md").write_text("Second\n")
@@ -195,7 +226,7 @@ class ComponentTests(unittest.TestCase):
         self.assertEqual(list(tool.load_components(self.root)), ["demo", "second"])
 
     def add_component(self, identifier, requires=()):
-        folder = self.root / "components" / identifier
+        folder = self.root / "common/components" / identifier
         (folder / "tests").mkdir(parents=True)
         (folder / "tests/test_component.py").write_text("import unittest\n")
         (folder / "README.md").write_text("Component\n")
@@ -225,7 +256,7 @@ class ComponentTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "cycle"):
             tool.load_components(self.root)
         runtime["requires"] = []
-        (self.root / "components/runtime/component.json").write_text(json.dumps(runtime))
+        (self.root / "common/components/runtime/component.json").write_text(json.dumps(runtime))
         self.assertEqual(tool.load_components(self.root)["demo"]["requires"], ["runtime"])
 
     def test_three_separate_build_directories_are_byte_identical(self):
@@ -243,13 +274,13 @@ class ComponentTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "runtime >= 0.1.9"):
             tool.load_components(self.root)
         runtime["version"] = "0.1.10"
-        (self.root / "components/runtime/component.json").write_text(json.dumps(runtime))
+        (self.root / "common/components/runtime/component.json").write_text(json.dumps(runtime))
         self.assertEqual(len(tool.load_components(self.root)),2)
         optional = self.add_component("optional")
         with self.assertRaisesRegex(ValueError, "optional >= 0.1.4"):
             tool.load_components(self.root)
         optional["version"] = "0.1.4"
-        (self.root / "components/optional/component.json").write_text(json.dumps(optional))
+        (self.root / "common/components/optional/component.json").write_text(json.dumps(optional))
         self.assertEqual(len(tool.load_components(self.root)),3)
 
     def test_invalid_minimum_version_metadata_is_rejected(self):
@@ -265,7 +296,7 @@ class ComponentTests(unittest.TestCase):
         first = artifact.read_bytes()
         # Filesystem timestamps and other files must not enter a component package.
         (self.root / "personal-secret.txt").write_text("not included")
-        (self.root / "python/demo.py").touch()
+        (self.root / "common/python/demo.py").touch()
         self.assertEqual(tool.build_component(self.root, self.data, output).read_bytes(), first)
         with tarfile.open(artifact) as archive:
             self.assertEqual(set(archive.getnames()), {"README.md", "component.json", "contents.json", "payload/usr/local/bin/demo",
@@ -302,10 +333,10 @@ class ComponentTests(unittest.TestCase):
         self.assertEqual(json.loads((self.folder / "component.json").read_text()), local)
 
     def test_bash_sources_export_legacy_names_without_changing_local_paths(self):
-        source = self.root / "shell/bash/demo.sh"
+        source = self.root / "common/shell/bash/demo.sh"
         source.parent.mkdir(parents=True)
         source.write_text("#!/bin/sh\nexit 0\n")
-        self.data["files"][0]["source"] = "shell/bash/demo.sh"
+        self.data["files"][0]["source"] = "common/shell/bash/demo.sh"
         self.data["files"] = self.data["files"][:1]
         self.add_docs(self.data, "shell/bash")
         self.save()
@@ -322,15 +353,15 @@ class ComponentTests(unittest.TestCase):
                 archive.extractfile("payload/usr/local/bin/demo").read(),
                 source.read_bytes(),
             )
-        self.assertEqual(self.data["files"][0]["source"], "shell/bash/demo.sh")
+        self.assertEqual(self.data["files"][0]["source"], "common/shell/bash/demo.sh")
 
     def test_auto_cli_zsh_exports_the_existing_component_archive_location(self):
         self.configure_auto_cli()
-        source = self.root / "shell/zsh/_auto"
+        source = self.root / "common/shell/zsh/_auto"
         source.parent.mkdir(parents=True)
         source.write_text("#compdef auto\nreturn 0\n")
         self.data["files"].append({
-            "source": "shell/zsh/_auto",
+            "source": "common/shell/zsh/_auto",
             "destination": "usr/local/share/zsh/site-functions/_auto",
             "mode": "0644",
         })
@@ -351,7 +382,7 @@ class ComponentTests(unittest.TestCase):
 
     def test_changed_payload_cannot_overwrite_same_version(self):
         tool.build_component(self.root, self.data, self.root / "dist")
-        (self.root / "python/demo.py").write_text("print('changed')\n")
+        (self.root / "common/python/demo.py").write_text("print('changed')\n")
         with self.assertRaisesRegex(ValueError, "already built with different content"):
             tool.build_component(self.root, self.data, self.root / "dist")
 

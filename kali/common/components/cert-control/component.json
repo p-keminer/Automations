@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "id": "cert-control",
+  "version": "0.1.1",
+  "name": "Certificate download control",
+  "description": "Optional control of the Pi4 public CA download routes, leaving Guacamole and TLS running.",
+  "default_enabled": false,
+  "targets": {
+    "distributions": [
+      "kali"
+    ],
+    "architectures": [
+      "arm64"
+    ]
+  },
+  "packages": [
+    "python3",
+    "nginx"
+  ],
+  "files": [
+    {
+      "source": "pi4/python/auto_cert.py",
+      "destination": "usr/local/libexec/automations/cert",
+      "mode": "0755"
+    },
+    {
+      "source": "common/completions/toggle",
+      "destination": "usr/local/share/automations/completions/cert",
+      "mode": "0644"
+    },
+    {
+      "source": "common/docs/de/cert-control.txt",
+      "destination": "usr/local/share/automations/help/docs/de/cert-control.txt",
+      "mode": "0644"
+    },
+    {
+      "source": "common/docs/en/cert-control.txt",
+      "destination": "usr/local/share/automations/help/docs/en/cert-control.txt",
+      "mode": "0644"
+    }
+  ]
+}
