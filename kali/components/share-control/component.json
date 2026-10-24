@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "id": "share-control",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "name": "Selected-uplink Internet sharing",
   "description": "Optional runtime-only IPv4 and available IPv6 egress for the Pi and control clients through one connected USB Wi-Fi or wired uplink, including DNS and no fallback.",
   "default_enabled": false,

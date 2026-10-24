@@ -103,6 +103,87 @@ class Busy(Error):
     pass
 
 
+LOCK_OWNER_LABELS = {
+    "automations-share-watch.service": "Share watcher",
+    "automations-tor-recovery.service": "Tor recovery check",
+    "automations-tor-rotation.service": "Tor rotation worker",
+}
+
+
+def _lock_proc_text(path, maximum):
+    """Read bounded kernel diagnostics; never inspect a command line or secrets."""
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+    try:
+        data = bytearray()
+        while len(data) <= maximum:
+            block = os.read(fd, min(65536, maximum + 1 - len(data)))
+            if not block:
+                break
+            data.extend(block)
+        if len(data) > maximum:
+            raise ValueError("Oversized lock diagnostic.")
+        return data.decode("ascii")
+    finally:
+        os.close(fd)
+
+
+def _sharing_lock_pid(info, proc_root):
+    owners = set()
+    for line in _lock_proc_text(proc_root / "locks", 1024 * 1024).splitlines():
+        fields = line.split()
+        if (len(fields) != 8 or not re.fullmatch(r"[0-9]+:", fields[0])
+                or fields[1:3] != ["FLOCK", "ADVISORY"] or fields[3] not in ("READ", "WRITE")
+                or not re.fullmatch(r"[1-9][0-9]*", fields[4]) or fields[6:] != ["0", "EOF"]):
+            continue
+        device = fields[5].split(":")
+        if (len(device) != 3 or not all(re.fullmatch(r"[0-9a-fA-F]+", x) for x in device[:2])
+                or not re.fullmatch(r"[1-9][0-9]*", device[2])):
+            continue
+        if (int(device[0], 16), int(device[1], 16), int(device[2])) == (os.major(info.st_dev), os.minor(info.st_dev), info.st_ino):
+            owners.add(int(fields[4]))
+    return next(iter(owners)) if len(owners) == 1 else None
+
+
+def _lock_process_start(proc_root, pid):
+    text = _lock_proc_text(proc_root / str(pid) / "stat", 8192)
+    head, separator, tail = text.rpartition(") ")
+    fields = tail.split()
+    if (not separator or not head.startswith(str(pid) + " (") or len(fields) < 20
+            or not fields[19].isdigit()):
+        raise ValueError("Unrecognized process identity.")
+    return fields[19]
+
+
+def sharing_busy_message(fd, proc_root=Path("/proc")):
+    """Describe a still-observed holder without changing or waiting for its lock."""
+    prefix = "Another sharing operation is running. "
+    unknown = prefix + "Owner is no longer observable or could not be determined; retry shortly."
+    try:
+        info = os.fstat(fd)
+        pid = _sharing_lock_pid(info, proc_root)
+        if pid is None:
+            return unknown
+        start = _lock_process_start(proc_root, pid)
+        cgroup = _lock_proc_text(proc_root / str(pid) / "cgroup", 65536)
+        services = set()
+        for line in cgroup.splitlines():
+            fields = line.split(":", 2)
+            if (len(fields) == 3 and fields[0].isdigit()
+                    and (fields[1] == "" or "name=systemd" in fields[1].split(","))
+                    and fields[2].startswith("/")):
+                services.update(part for part in fields[2].split("/") if part in LOCK_OWNER_LABELS)
+        if (_sharing_lock_pid(info, proc_root) != pid or _lock_process_start(proc_root, pid) != start
+                or _lock_proc_text(proc_root / str(pid) / "cgroup", 65536) != cgroup):
+            return unknown
+        owner = "PID " + str(pid)
+        if len(services) == 1:
+            service = next(iter(services))
+            owner = LOCK_OWNER_LABELS[service] + " (" + service + ", PID " + str(pid) + ")"
+        return prefix + "Observed owner: " + owner + ". Retry shortly."
+    except (OSError, UnicodeError, ValueError):
+        return unknown
+
+
 def require(condition, message):
     if not condition:
         raise Error(message)
@@ -623,7 +704,7 @@ class Platform:
             try:
                 fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError:
-                raise Busy("Another sharing operation is running.") from None
+                raise Busy(sharing_busy_message(fd)) from None
             if self.path(REFRESH_STATE).exists() or self.path(REFRESH_STATE).is_symlink():
                 self.refresh_support().resume(self)
             yield
