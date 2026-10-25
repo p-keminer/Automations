@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "id": "ap-control",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "name": "Control WLAN visibility",
   "description": "Persist the managed Pi4 SSID visibility and apply it through a bounded hostapd restart; control WLAN reconnects briefly.",
   "default_enabled": false,

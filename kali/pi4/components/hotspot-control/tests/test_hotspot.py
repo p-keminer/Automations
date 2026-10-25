@@ -163,7 +163,7 @@ class HotspotTests(unittest.TestCase):
     def test_template_escapes_ssid_in_body_and_title(self):
         text=h.render('<title>{{SSID}}</title><h1>{{SSID}}</h1>','<img src=x onerror=1>')
         self.assertNotIn('<img',text);self.assertEqual(text.count('&lt;img'),2)
-        with self.assertRaises(h.Error):h.render('no placeholder','SSID')
+        self.assertEqual(h.render('plain static page','SSID'),'plain static page')
 
     def test_service_cannot_start_at_boot_and_cleans_on_exit(self):
         unit=(ROOT/'pi4/components/hotspot-control/files/automations-hotspot.service').read_text()
@@ -207,12 +207,15 @@ class HotspotTests(unittest.TestCase):
         self.assertIn('recovery-close-recovery_input-tcp',json.dumps(privacy.objects(state)))
 
     def test_no_arbitrary_raw_template_routes_or_logins(self):
-        template=(ROOT/'pi4/python/templates/hotspot/welcome.html').read_text()
+        template=(ROOT/'common/templates/hotspot/welcome/index.html').read_text()
         self.assertIn('Willkommen in',template);self.assertIn('{{SSID}}',template)
         self.assertNotIn('<form',template);self.assertNotIn('<script',template)
         config=h.nginx_config(share.GUEST)
         self.assertIn('10.79.0.1:443',config);self.assertIn('10.79.0.1:80',config)
-        self.assertNotIn('proxy_pass',config);self.assertIn('form-action',config)
+        self.assertNotIn('proxy_pass',config);self.assertIn("script-src 'self'",config);self.assertIn('try_files $uri',config)
+        self.assertIn('if ($host != 10.79.0.1) { return 302 http://10.79.0.1/; }',config)
+        for path in h.portal().CAPTIVE_PATHS:
+            self.assertIn('location = '+path+' { return 302 http://10.79.0.1/; }',config)
 
 
 if __name__=='__main__':unittest.main()

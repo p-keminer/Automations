@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "id": "hotspot-control",
-  "version": "0.1.6",
+  "version": "0.2.0",
   "name": "Isolated USB welcome access point",
   "description": "Optional runtime-only welcome AP on either external USB radio, with a customizable captive page and selected-uplink Internet sharing. ctrl0 stays protected.",
   "default_enabled": false,
@@ -19,7 +19,7 @@
     "share-control"
   ],
   "minimum_versions": {
-    "auto-cli": "0.1.4",
+    "auto-cli": "0.2.1",
     "wifi-control": "0.1.3",
     "share-control": "0.1.8",
     "anonymity-runtime": "0.1.4"
@@ -42,13 +42,18 @@
       "mode": "0755"
     },
     {
+      "source": "common/python/portal_templates.py",
+      "destination": "usr/local/libexec/automations-support/portal_templates.py",
+      "mode": "0644"
+    },
+    {
       "source": "pi4/components/hotspot-control/files/automations-hotspot.service",
       "destination": "etc/systemd/system/automations-hotspot.service",
       "mode": "0644"
     },
     {
-      "source": "pi4/python/templates/hotspot/welcome.html",
-      "destination": "usr/local/share/automations/hotspot/welcome.html",
+      "source": "common/templates/hotspot/welcome/index.html",
+      "destination": "usr/local/share/automations/hotspot/templates/welcome/index.html",
       "mode": "0644"
     },
     {
@@ -64,6 +69,26 @@
     {
       "source": "common/components/hotspot-control/files/completion",
       "destination": "usr/local/share/automations/completions/share-ap",
+      "mode": "0644"
+    },
+    {
+      "source": "common/templates/hotspot/kompakt/index.html",
+      "destination": "usr/local/share/automations/hotspot/templates/kompakt/index.html",
+      "mode": "0644"
+    },
+    {
+      "source": "common/templates/hotspot/kompakt/assets/theme.css",
+      "destination": "usr/local/share/automations/hotspot/templates/kompakt/assets/theme.css",
+      "mode": "0644"
+    },
+    {
+      "source": "common/templates/hotspot/werkstatt/index.html",
+      "destination": "usr/local/share/automations/hotspot/templates/werkstatt/index.html",
+      "mode": "0644"
+    },
+    {
+      "source": "common/templates/hotspot/werkstatt/assets/theme.css",
+      "destination": "usr/local/share/automations/hotspot/templates/werkstatt/assets/theme.css",
       "mode": "0644"
     }
   ]

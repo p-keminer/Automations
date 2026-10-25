@@ -401,12 +401,52 @@ class HostShareTests(unittest.TestCase):
         with self.backend.lock(), self.assertRaisesRegex(share.Error, 'Another host sharing'):
             with self.backend.lock(): pass
 
-    def test_help_and_missing_explicit_selection_never_load_profile(self):
+    def test_help_never_loads_profile_and_noninteractive_ambiguity_never_mutates(self):
         with patch.object(share, 'load_profile', side_effect=AssertionError('must not load')):
             with contextlib.redirect_stdout(io.StringIO()), self.assertRaises(SystemExit) as result: share.main(['--help'])
             self.assertEqual(result.exception.code, 0)
-            with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as result: share.main(['--lan'])
-            self.assertEqual(result.exception.code, 2)
+            with contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(share.main(['--lan','--from','host'],backend=self.backend,
+                                           stdin=io.StringIO(),stdout=io.StringIO()),1)
+            self.assertEqual(self.system.mutations(),[])
+
+    def test_interactive_uplink_and_sources_use_shared_bounded_choices(self):
+        class Terminal(io.StringIO):
+            def isatty(self):return True
+        terminal=Terminal('eth0\n2\n');output=Terminal()
+        uplink=self.backend.select_uplink('lan',stdin=terminal,stdout=output)
+        self.assertEqual(uplink,'eth0')
+        sources=self.backend.source_selection(uplink,stdin=terminal,stdout=output)
+        self.assertEqual(sources,['ap0'])
+        self.assertIn('Select an external interface:',output.getvalue())
+        self.assertIn('this Kali host only',output.getvalue())
+        self.assertEqual(self.system.mutations(),[])
+
+    def test_noninteractive_source_choice_requires_explicit_client_or_host(self):
+        with self.assertRaisesRegex(share.Error,'--from'):
+            self.backend.source_selection('eth0',stdin=io.StringIO(),stdout=io.StringIO())
+        self.assertEqual(self.backend.source_selection('eth0','host'),[])
+        self.assertEqual(self.backend.source_selection('eth0','ap0'),['ap0'])
+        with self.assertRaises(share.Error):self.backend.source_selection('eth0','host,ap0')
+        with self.assertRaises(share.Error):self.backend.source_selection('eth0','eth0')
+        self.assertEqual(self.system.mutations(),[])
+
+    def test_cli_interface_alias_and_explicit_host_selection(self):
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(share.main(['--lan','--interface','eth0','--from','host'],backend=self.backend),0)
+        self.assertEqual(self.backend.read_state()['selection']['clients'],[])
+        self.backend.disable()
+
+    def test_cli_status_requires_sudo_before_backend_reads(self):
+        for args in ([], ['--status']):
+            errors = io.StringIO()
+            with patch.object(share.os, 'geteuid', return_value=1000), \
+                    patch.object(self.backend, 'status', side_effect=AssertionError('must not read')), \
+                    contextlib.redirect_stderr(errors):
+                self.assertEqual(share.main(args, backend=self.backend), 77)
+            self.assertIn('sudo auto share', errors.getvalue())
+            self.assertIn('firewall', errors.getvalue())
+        self.assertEqual(self.system.mutations(), [])
 
     def test_status_explains_host_only_and_ipv6_limits(self):
         self.backend.enable('lan', 'eth0')

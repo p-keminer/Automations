@@ -1,6 +1,6 @@
 Zusätzlicher USB-Willkommens-AP
 
-sudo auto share ap "SSID" [--interface IFACE]  AP starten oder SSID ändern.
+sudo auto share ap "SSID" [--interface IFACE] [--template NAME]  AP starten oder SSID ändern.
 sudo auto share ap --status                  Interface, SSID, Laufzeit, Clients, Webpfade.
 sudo auto share ap --off                     AP beenden; ctrl0 bleibt erhalten.
 sudo auto share ap --help                    Befehlsübersicht.
@@ -29,9 +29,12 @@ Das Handy/Betriebssystem entscheidet über das automatische Anmeldefenster;
 gegebenenfalls HTTP direkt öffnen. Nur Web sowie notwendiges DNS/DHCP, kein SSH
 oder Guacamole und kein Zugriff ins Steuer-/private Upstream-Netz. Client-Isolation.
 
-Template: /usr/local/share/automations/hotspot/welcome.html
-Vorlagenverzeichnis: /usr/local/share/automations/hotspot
-Ausgelieferte Webdateien: /run/automations-hotspot-www (während der Laufzeit erzeugt).
---status zeigt beide Verzeichnisse auch bei ausgeschaltetem AP an.
-Mit sudo bearbeiten, {{SSID}} beibehalten, AP neu starten/umbenennen.
-Die SSID wird HTML-escaped. Keine Passwort-/Loginform und keine externen Inhalte.
+Vorlagen: /usr/local/share/automations/hotspot/templates/NAME/index.html
+--template NAME wählt den Verzeichnisnamen. Ohne Angabe erscheint im Terminal
+eine nummerierte Auswahl; ohne Terminal den Namen ausdrücklich angeben.
+Eigene HTML/CSS/JS/Bilder im jeweiligen Verzeichnis ablegen, mit sudo verwalten.
+{{SSID}} ist optional und wird HTML-escaped. Die gewählte Vorlage wird beim
+AP-Start als Laufzeitkopie übernommen; andere Vorlagen bleiben unverändert.
+Webdateien: Pi /run/automations-hotspot-www, Kali-Host /run/automations-host-ap-www.
+--status zeigt die Auswahl. Portables Kali liefert HTTP unter derselben Adresse;
+HTTPS mit Pi4-CA gilt nur auf dem Pi. Das Steuernetz bleibt bei Guacamole.

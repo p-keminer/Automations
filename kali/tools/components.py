@@ -127,7 +127,7 @@ def load_components(root=ROOT):
         for item in data["files"]:
             require(isinstance(item, dict) and set(item) == {"source", "destination", "mode"}, "Invalid file mapping.")
             source = relative_path(item["source"]).as_posix()
-            require(source.startswith(("common/python/", "pi4/python/", "portable/python/", "common/completions/", "common/docs/", "common/shell/bash/", "common/shell/zsh/",
+            require(source.startswith(("common/python/", "pi4/python/", "portable/python/", "common/completions/", "common/templates/", "common/docs/", "common/shell/bash/", "common/shell/zsh/",
                     *(f"{group}/components/{identifier}/files/" for group in ("common", "pi4", "portable")))), "Source is outside the payload directories.")
             require(source not in LOCAL_ONLY_SOURCES, "Local-only prototype files cannot be packaged.")
             regular_file(root, source)
@@ -220,6 +220,8 @@ def archive_manifest(component):
             source = relative
         if source.startswith("completions/"):
             source = f"components/{component['id']}/files/completion"
+        if source.startswith("templates/"):
+            source = "python/" + source
         if source.startswith("docs/"):
             source = "python/" + source
         if source.startswith("python/"):

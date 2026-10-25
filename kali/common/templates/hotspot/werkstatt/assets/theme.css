@@ -1,0 +1,32 @@
+:root {
+  color-scheme: light;
+  --paper: #f4eee5;
+  --sheet: #fffdf8;
+  --ink: #182d28;
+  --forest: #235247;
+  --body: #43554c;
+  --line: #b4b0a1;
+  --band: #e4dbc8;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  color: var(--ink);
+  background: var(--paper);
+  scrollbar-color: var(--forest) var(--paper);
+}
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100svh; display: grid; place-items: center; padding: clamp(16px, 4vw, 48px); }
+main { width: min(100%, 820px); border: 1px solid var(--line); border-top: 8px solid var(--forest); background: var(--sheet); padding: clamp(26px, 6vw, 56px); }
+header { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding-bottom: 24px; border-bottom: 1px solid var(--line); }
+.label { font: 600 12px/1.5 "Consolas", monospace; text-transform: uppercase; letter-spacing: .08em; }
+header svg { width: 64px; height: 32px; color: var(--forest); flex: 0 0 64px; }
+.intro { display: grid; grid-template-columns: 1.5fr 1fr; align-items: end; gap: 24px; margin: 40px 0 34px; }
+h1 { font: 400 clamp(39px, 6vw, 62px)/1.07 "Palatino Linotype", "Book Antiqua", Georgia, serif; letter-spacing: -.035em; margin: 0; overflow-wrap: anywhere; }
+.intro > p { color: var(--body); font-size: 16px; line-height: 1.6; margin: 0 0 3px; }
+.network { padding: 24px; background: var(--band); border-left: 5px solid var(--forest); }
+h2 { font-size: 14px; font-weight: 650; margin: 0 0 10px; }
+.ssid { font: 600 clamp(23px, 4vw, 32px)/1.3 "Consolas", monospace; color: var(--forest); overflow-wrap: anywhere; margin: 0; }
+.notes { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-top: 32px; }
+.notes p { font-size: 15px; color: var(--body); line-height: 1.65; margin: 0; }
+footer { border-top: 1px solid var(--line); margin-top: 36px; padding-top: 20px; color: var(--body); font-size: 13px; line-height: 1.5; }
+@media (max-width: 600px) { .intro, .notes { grid-template-columns: 1fr; gap: 22px; } .intro { margin-top: 30px; } .intro > p br { display: none; } }
+@media (max-width: 360px) { main { padding: 22px; } .network { padding: 18px; } .label { font-size: 11px; } }
+@media (forced-colors: active) { main, header, footer, .network { border-color: CanvasText; } }

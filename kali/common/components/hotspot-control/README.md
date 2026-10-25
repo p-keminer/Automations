@@ -1,6 +1,6 @@
 # Additional USB welcome AP
 
-`sudo auto share ap "SSID" [--interface IFACE]` starts or renames one optional,
+`sudo auto share ap "SSID" [--interface IFACE] [--template NAME]` starts or renames one optional,
 runtime-only AP on either external USB adapter. Both adapters remain interchangeable:
 neither is reserved for AP use. It never changes the internal `ctrl0` AP;
 `auto ap` continues to control only the visibility/status of that control WLAN.
@@ -20,7 +20,7 @@ start it again explicitly. A different interface reusing the name is not changed
 Commands:
 
 ```sh
-sudo auto share ap "Welcome" --interface wlan1
+sudo auto share ap "Welcome" --interface wlan1 --template welcome
 sudo auto share ap --status
 sudo auto share ap "New name" --interface wlan1
 sudo auto share ap --off
@@ -44,12 +44,16 @@ fallback. Share OFF removes forwarding but leaves the local welcome page up.
 Tor inherits the selected uplink and applies its normal TCP/DNS restrictions to
 AP clients too. Turn Tor off before changing AP topology or the selected uplink.
 
-The editable UTF-8 template is `/usr/local/share/automations/hotspot/welcome.html`.
-`--status` shows this template directory and `/run/automations-hotspot-www`,
-the directory of generated files currently served by nginx. Both paths are
-reported even while the AP is off; the runtime directory then does not exist.
-`{{SSID}}` is HTML escaped before substitution; restart/rename the AP to apply
-template changes. No external assets, input forms, telemetry or credentials.
+Portal templates live in `/usr/local/share/automations/hotspot/templates/NAME/`;
+each contains `index.html` and may include local CSS, JavaScript, images and fonts.
+Select the directory name with `--template NAME`; without it, a terminal lists the
+available templates and asks for a number or name. Non-interactive calls must
+supply the name. `{{SSID}}` is optional and HTML escaped. Templates stay installed;
+the chosen files are snapshotted for each AP start. Edit/add templates with sudo.
+`--status` shows the selected name and template/runtime directories. The portable
+Kali host serves HTTP at the same address using its own temporary web service;
+Pi4 keeps its isolated nginx service. The control WLAN continues serving Guacamole.
+
 HTTP `http://10.79.0.1/` is the portal entry. HTTPS `https://pi4/` uses the existing
 Pi4 certificate, and therefore needs the existing Pi4 CA trust. HTTPS requests
 to unrelated domains are never impersonated or intercepted. Operating systems

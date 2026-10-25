@@ -20,7 +20,7 @@ EXCLUDED = {
     'pi4/components/share-control/files/automations-share-watch.timer',
     'pi4/python/fan_off.py', 'pi4/components/fan-control/files/automations-fan-off.service',
     'pi4/python/auto_hotspot.py', 'pi4/components/hotspot-control/files/automations-hotspot.service',
-    'pi4/python/templates/hotspot/welcome.html', 'pi4/python/egress.py',
+    'pi4/python/egress.py',
     'pi4/components/tor-control/files/torrc',
     'pi4/components/tor-control/files/automations-tor.service',
     'pi4/components/tor-control/files/automations-tor-recovery.service',

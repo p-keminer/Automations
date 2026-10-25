@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Dein Platz im WLAN {{SSID}}</title>
+  <link rel="stylesheet" href="/assets/theme.css">
+</head>
+<body>
+  <main aria-labelledby="welcome-title">
+    <header>
+      <span class="label">WLAN · Gastbereich</span>
+      <svg viewBox="0 0 64 32" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <circle cx="9" cy="16" r="5"/><path d="M14 16h16m6 0h14"/><circle cx="33" cy="16" r="3"/><rect x="50" y="10" width="10" height="12" rx="2"/>
+      </svg>
+    </header>
+    <div class="intro">
+      <h1 id="welcome-title">Platz nehmen.<br>Loslegen.</h1>
+      <p>Ein gemeinsames Netz<br>für deinen Aufenthalt.</p>
+    </div>
+    <section class="network" aria-labelledby="network-title">
+      <h2 id="network-title">Du bist verbunden mit</h2>
+      <p class="ssid">{{SSID}}</p>
+    </section>
+    <div class="notes">
+      <section aria-labelledby="local-title">
+        <h2 id="local-title">Hier im Netz</h2>
+        <p>Diese Willkommensseite ist direkt über das lokale WLAN erreichbar.</p>
+      </section>
+      <section aria-labelledby="internet-title">
+        <h2 id="internet-title">Weiter ins Internet</h2>
+        <p>Eine Internetverbindung ist verfügbar, wenn sie für dieses WLAN freigegeben wurde.</p>
+      </section>
+    </div>
+    <footer>Fenster schließen, verbunden bleiben.</footer>
+  </main>
+</body>
+</html>

@@ -13,13 +13,14 @@ COMMANDS = Path('/usr/local/libexec/automations')
 DATA = Path('/usr/local/share/automations/completions')
 SYSNET = Path('/sys/class/net')
 SUPPORT = Path('/usr/local/libexec/automations-support')
+TEMPLATES = Path('/usr/local/share/automations/hotspot/templates')
 PROFILE_PATH = Path('etc/automations/platform.json')
 PROFILE_HELPER = Path('usr/local/libexec/automations-support/platform_support.py')
 HOST_DIRECTORY = Path('usr/local/libexec/automations-host')
 NAME = re.compile(r'[a-z][a-z0-9]*(?:-[a-z0-9]+)*')
 OPTION = re.compile(r'--[a-z][a-z0-9-]*')
 INTERFACE = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,14}')
-VALUES = {'--interface', '--to', '--from', '--ip', '--rotate-every', '--password-file'}
+VALUES = {'--interface', '--to', '--from', '--ip', '--rotate-every', '--password-file', '--template'}
 
 
 def regular(path, executable=False):
@@ -214,23 +215,35 @@ def sources(sysnet, state, boot_id):
     return result
 
 
-def value_candidates(flag, current, words, sysnet, state, boot_id, profile=None):
+def value_candidates(flag, current, words, sysnet, state, boot_id, profile=None, templates=TEMPLATES):
+    if flag == '--template':
+        if words[:2] != ['share', 'ap'] or templates.is_symlink() or not templates.is_dir():
+            return []
+        return [path.name for path in sorted(templates.iterdir())
+                if re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,63}', path.name)
+                and not path.is_symlink() and path.is_dir() and regular(path/'index.html')
+                and path.name.startswith(current)][:256]
     if flag in {'--interface', '--to', '--from'}:
         if profile is not None:
             names = _host_interfaces(sysnet, words, profile, clients=flag == '--from')
+            if flag == '--from':
+                names = list(dict.fromkeys(['host', *names]))
         else:
             names = sources(sysnet, state, boot_id) if flag == '--from' else interfaces(sysnet, words)
         if flag == '--from' and ',' in current:
             chosen, _, prefix = current.rpartition(',')
             selected = set(chosen.split(','))
-            return [chosen+','+name for name in names if name not in selected and name.startswith(prefix)]
+            if profile is not None and 'host' in selected:
+                return []
+            return [chosen+','+name for name in names if name not in selected and name.startswith(prefix)
+                    and not (profile is not None and name == 'host')]
         return [name for name in names if name.startswith(current)]
     if flag == '--rotate-every':
         return [value for value in ['30s', '1m', '2m', '5m', '1h', '24h'] if value.startswith(current)]
     return []
 
 
-def candidates(words, index, *, commands=COMMANDS, data=DATA, sysnet=SYSNET, support=SUPPORT,
+def candidates(words, index, *, commands=COMMANDS, data=DATA, sysnet=SYSNET, support=SUPPORT, templates=TEMPLATES,
                state=Path('/run/automations-hotspot/state.json'),
                boot_id=Path('/proc/sys/kernel/random/boot_id'),
                _profile_root=Path('/'), _owner_uid=0):
@@ -294,20 +307,20 @@ def candidates(words, index, *, commands=COMMANDS, data=DATA, sysnet=SYSNET, sup
     if not available:
         return []
     value_flags = set(available)
-    if profile is None and name == 'share' and '--to' in value_flags:
+    if name == 'share' and '--to' in value_flags:
         value_flags.add('--interface')  # Accepted legacy alias; do not advertise it.
     previous = words[index-1]
-    if profile is not None and name == 'share' and previous == '--interface':
+    if previous == '--template' and previous not in value_flags:
         return []
     if previous in VALUES and previous in value_flags:
         try:
-            return value_candidates(previous, current, context, sysnet, state, boot_id, profile)
+            return value_candidates(previous, current, context, sysnet, state, boot_id, profile, templates)
         except (OSError, ValueError, UnicodeError):
             return []
     flag, separator, value = current.partition('=')
     if separator and flag in VALUES and flag in value_flags:
         try:
-            return [flag+'='+candidate for candidate in value_candidates(flag, value, context, sysnet, state, boot_id, profile)]
+            return [flag+'='+candidate for candidate in value_candidates(flag, value, context, sysnet, state, boot_id, profile, templates)]
         except (OSError, ValueError, UnicodeError):
             return []
     return [option for option in available if option.startswith(current)]

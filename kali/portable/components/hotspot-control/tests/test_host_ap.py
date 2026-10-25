@@ -64,12 +64,14 @@ class Fixture:
         self.mode, self.managed, self.autoconnect = 'managed', True, True
         self.active, self.addresses, self.profiles = '', [], {}
         self.routes, self.service = [], None
+        self.web_service = None
         self.fail_up = None
         self.after_down = None
         (root / 'run/NetworkManager/system-connections').mkdir(parents=True)
         self.file('/proc/sys/kernel/random/boot_id', '00000000-0000-4000-8000-000000000001\n')
-        for filename in (ap.NMCLI, ap.IP, ap.IW, ap.SYSTEMCTL, ap.SYSTEMD_RUN, ap.DNSMASQ):
+        for filename in (ap.NMCLI, ap.IP, ap.IW, ap.SYSTEMCTL, ap.SYSTEMD_RUN, ap.DNSMASQ, ap.PYTHON, ap.PORTAL):
             self.file(filename, 'fixture executable', 0o755)
+        self.file(ap.TEMPLATES + '/welcome/index.html', '<h1>{{SSID}}</h1>')
         self.radio = Radio(self)
 
     def file(self, filename, contents, mode=0o644):
@@ -112,7 +114,7 @@ class Fixture:
                 if query[:2] == ['connection', 'show'] and field == 'UUID' and len(query) == 2:
                     return '\n'.join(self.profiles) + ('\n' if self.profiles else '')
                 if query[:2] == ['connection', 'show']:
-                    return self.profiles[query[-1]]['fields'][field] + '\n'
+                    return self.profiles[query[-1]]['fields'].get(field, '') + '\n'
                 if query[:2] == ['device', 'show']:
                     return (self.active if field == 'GENERAL.CON-UUID' else '100 (connected)' if self.active else '30 (disconnected)') + '\n'
                 raise AssertionError(args)
@@ -156,16 +158,40 @@ class Fixture:
                 return 'Supported interface modes:\n\t * managed\n\t * AP\n'
             item = self.radio.adapters[args[2]]
             return 'Interface ' + item.name + '\n\tifindex ' + str(item.index) + '\n\twiphy ' + item.phy[3:] + '\n\ttype ' + self.mode + '\n'
+        if args[0] == ap.PYTHON:
+            assert args[1] == '-c' and 'hashlib.sha256' in args[2]
+            return ''
         if args[0] == ap.DNSMASQ:
             return ''
         if args[0] == ap.SYSTEMD_RUN:
             unit = next(word[7:] for word in args if word.startswith('--unit='))
             description = next(word[14:] for word in args if word.startswith('--description='))
+            if ' AP portal ' in description:
+                command = args[args.index('--') + 1:]
+                user = next(word.removeprefix('--property=User=') for word in args if word.startswith('--property=User='))
+                self.web_service = dict(unit=unit, description=description, state='active', user=user)
+                self.file('/proc/4322/cmdline', '\0'.join(command) + '\0')
+                if os.getuid() == 0:
+                    import pwd
+                    os.chown(self.root/'proc/4322', pwd.getpwnam('nobody').pw_uid, -1)
+                return ''
             self.service = dict(unit=unit, description=description, state='active', pid='4321', transient='yes')
             command = args[args.index('--') + 1:]
             self.file('/proc/4321/cmdline', '\0'.join(command) + '\0')
             return ''
         if args[0] == ap.SYSTEMCTL:
+            if args[2].startswith('automations-host-ap-web-'):
+                if args[1] in ('stop', 'start'):
+                    self.web_service['state'] = 'inactive' if args[1] == 'stop' else 'active'
+                    return ''
+                item = self.web_service
+                if item is None or item['unit'] != args[2]:
+                    return 'LoadState=not-found\nActiveState=inactive\nMainPID=0\n'
+                command = [ap.PYTHON, ap.PORTAL, '--serve', '--directory', ap.WEB, '--bind', '10.79.0.1']
+                executable = '{ path=' + ap.PYTHON + ' ; argv[]=' + ' '.join(command) + ' ; ignore_errors=no ; start_time=[n/a] ; stop_time=[n/a] ; pid=4322 ; code=(null) ; status=0/0 }'
+                return ('LoadState=loaded\nTransient=yes\nType=exec\nActiveState='+item['state']
+                    +'\nMainPID=4322\nUser='+item['user']+'\nGroup=\nKillMode=control-group\nDescription='+item['description']
+                    +'\nFragmentPath=/run/systemd/transient/'+item['unit']+'\nDropInPaths=\nExecStart='+executable+'\n')
             if args[1] == 'stop':
                 self.service['state'] = 'inactive'
                 return ''
@@ -199,6 +225,54 @@ class HostAPTests(unittest.TestCase):
 
     def start(self, **kwargs):
         return self.service.on('wlan0', 'Test AP', 'private-passphrase', **kwargs)
+
+    def test_selected_template_and_nested_assets_have_owned_lifecycle(self):
+        self.fixture.file(ap.TEMPLATES + '/workshop/index.html', '<h1>Workshop {{SSID}}</h1>')
+        self.fixture.file(ap.TEMPLATES + '/workshop/assets/theme.css', 'body{color:red}')
+        result = self.start(template='workshop')
+        self.assertEqual(result['template'], 'workshop')
+        self.assertEqual(self.service.path(ap.WEB+'/index.html').read_text(), '<h1>Workshop Test AP</h1>')
+        self.assertEqual(self.service.path(ap.WEB+'/assets/theme.css').read_text(), 'body{color:red}')
+        self.assertTrue(self.service.verify_portal(self.service.load()))
+        self.service.off()
+        self.assertFalse(self.service.path(ap.WEB).exists())
+        self.assertTrue(self.service.path(ap.TEMPLATES+'/workshop/index.html').exists())
+
+    def test_unknown_template_fails_before_radio_or_service_mutation(self):
+        before = list(self.fixture.calls)
+        with self.assertRaises(ap.Error): self.start(template='missing')
+        self.assertEqual(self.fixture.calls, before)
+        self.assertFalse(self.service.path(ap.RUNTIME).exists())
+
+    def test_changed_served_asset_prevents_unverified_cleanup(self):
+        self.start()
+        self.service.path(ap.WEB+'/index.html').write_text('keep this edit')
+        before = len(self.fixture.calls)
+        with self.assertRaisesRegex(ValueError, 'asset changed'): self.service.off()
+        self.assertFalse(any(args[1] == 'stop' for args, _ in self.fixture.calls[before:] if args[0] == ap.SYSTEMCTL))
+        self.assertEqual(self.service.path(ap.WEB+'/index.html').read_text(),'keep this edit')
+
+    def test_foreign_portal_service_is_never_stopped(self):
+        self.start()
+        self.fixture.web_service['description'] = 'foreign service'
+        before = len(self.fixture.calls)
+        with self.assertRaisesRegex(ap.Error,'portal service identity'): self.service.off()
+        self.assertFalse(any(args[1] == 'stop' for args, _ in self.fixture.calls[before:] if args[0] == ap.SYSTEMCTL))
+
+    def test_template_parser_is_only_on_additional_ap(self):
+        for argv in (['--template','welcome'], ['--status','--template','welcome']):
+            with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+                ap.main(argv,backend=self.service)
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            ap.share_main(['--status','--template','welcome'],backend=self.service)
+
+    def test_missing_template_in_automation_shows_available_options(self):
+        self.fixture.file('/run/ap-secret', 'private-passphrase', 0o600)
+        with patch.object(ap.sys.stdin,'isatty',return_value=False),contextlib.redirect_stderr(io.StringIO()) as err:
+            self.assertEqual(ap.share_main(['Guest','--interface','wlan0','--password-file','/run/ap-secret'],backend=self.service),1)
+        self.assertIn('--template NAME',err.getvalue())
+        self.assertIn('welcome',err.getvalue())
+        self.assertFalse(self.fixture.calls)
 
     def test_full_lifecycle_preserves_device_policy_and_removes_only_owned_profiles(self):
         unrelated = self.fixture.file('/run/NetworkManager/system-connections/existing.nmconnection', 'unrelated', 0o600)
@@ -246,14 +320,21 @@ class HostAPTests(unittest.TestCase):
                 self.assertEqual(self.service.on('wlan0', name, 'private-passphrase')['ssid'], name)
                 self.service.off()
 
-    def test_dhcp_is_confined_to_selected_ap_and_does_not_resolve_dns(self):
+    def test_dhcp_and_captive_dns_are_confined_to_selected_ap_without_upstream_fallback(self):
         self.start()
         state = self.service.load()
         text = (self.root / ap.RUNTIME.lstrip('/') / 'dnsmasq.conf').read_text()
-        self.assertIn('port=0\n', text)
+        self.assertIn('port=53\nlisten-address=10.79.0.1\n', text)
+        self.assertIn('no-resolv\nno-poll\n', text)
+        self.assertIn('address=/www.msftconnecttest.com/10.79.0.1\n', text)
+        self.assertIn('local=/www.msftconnecttest.com/\n', text)
+        for name in ('detectportal.firefox.com','msftconnecttest.com','msftncsi.com'):
+            self.assertIn('address=/'+name+'/10.79.0.1\n',text)
+            self.assertIn('local=/'+name+'/\n',text)
+        self.assertNotIn('server=', text)
         self.assertIn('interface=wlan0\nbind-interfaces\nexcept-interface=lo', text)
         self.assertIn('dhcp-option=option:dns-server,10.79.0.1', text)
-        calls = [args for args, _ in self.fixture.calls if args[0] == ap.SYSTEMD_RUN]
+        calls = [args for args, _ in self.fixture.calls if args[0] == ap.SYSTEMD_RUN and any('AP DHCP ' in word for word in args)]
         self.assertEqual(len(calls), 1)
         self.assertIn('--property=UMask=0077', calls[0])
         self.assertIn('--property=KillMode=control-group', calls[0])
@@ -369,7 +450,7 @@ class HostAPTests(unittest.TestCase):
         self.start(dhcp=False)
         self.assertTrue(self.service.visibility(True)['hidden'])
         self.assertIsNone(self.fixture.service)
-        self.assertFalse(any(args[0] == ap.SYSTEMCTL and args[1] in ('start', 'stop') for args, _ in self.fixture.calls))
+        self.assertFalse(any(args[0] == ap.SYSTEMCTL and args[1] in ('start', 'stop') and not args[2].startswith('automations-host-ap-web-') for args, _ in self.fixture.calls))
         self.service.off()
 
     def test_changed_dhcp_configuration_is_not_executed(self):
@@ -507,13 +588,69 @@ class HostAPTests(unittest.TestCase):
         with self.assertRaisesRegex(ap.Error, 'private file permissions'):
             ap.read_password_file(self.service, '/run/ap-secret')
 
-    def test_no_shell_psk_or_open_network_in_cli(self):
-        for psk in ('', 'short', 'a' * 64, 'pässword123', 'foo\nbar123'):
+    def test_no_shell_psk_or_invalid_nonempty_password_in_cli(self):
+        for psk in ('short', 'a' * 64, 'pässword123', 'foo\nbar123', None):
             with self.subTest(value=repr(psk)), self.assertRaises(ap.Error):
                 ap.validate_psk(psk)
         with contextlib.redirect_stderr(io.StringIO()) as out, self.assertRaises(SystemExit):
             ap.share_main(['SSID', '--interface', 'wlan0', '--password', 'private-passphrase'], backend=self.service)
         self.assertNotIn('private-passphrase', out.getvalue())
+
+    def test_empty_password_creates_open_ap_with_full_lifecycle(self):
+        result=self.service.on('wlan0','Open AP','')
+        self.assertEqual(result['security'],'open')
+        state=self.service.load()
+        text=self.service.path(self.service.key_path(state)).read_text()
+        self.assertNotIn('[wifi-security]',text)
+        self.assertNotIn('psk=',text)
+        self.assertIn('ap-isolation=1',text)
+        self.service.visibility(True)
+        self.assertEqual(self.service.status()['security'],'open')
+        self.service.off()
+        self.assertFalse(self.service.path(ap.RUNTIME).exists())
+        self.assertTrue(self.fixture.autoconnect)
+
+    def test_omitted_interface_selects_single_radio_or_asks_for_multiple(self):
+        class Terminal(io.StringIO):
+            def isatty(self):return True
+        output=Terminal()
+        self.assertEqual(self.service.select_interface(stdin=Terminal('2\n'),stdout=output),'wlan1')
+        self.assertIn('wlan0',output.getvalue())
+        self.assertIn('wlan1',output.getvalue())
+        with self.assertRaisesRegex(ap.Error,'--interface'):
+            self.service.select_interface(stdin=io.StringIO(),stdout=io.StringIO())
+        self.fixture.radio.adapters.pop('wlan1')
+        self.assertEqual(self.service.select_interface(stdin=io.StringIO(),stdout=io.StringIO()),'wlan0')
+        self.assertFalse(any(args[:2]==[ap.NMCLI,'device'] for args,_ in self.fixture.calls))
+
+    def test_open_receipt_cannot_hide_security_mutation_in_loaded_profile(self):
+        self.service.on('wlan0','Open AP','')
+        state=self.service.load()
+        self.fixture.profiles[state['connection']]['fields']['802-11-wireless-security.key-mgmt']='wpa-psk'
+        with self.assertRaisesRegex(ap.Error,'settings changed'):self.service.status()
+
+    def test_interactive_empty_password_and_empty_private_file_both_select_open(self):
+        for source in ('prompt','file'):
+            with self.subTest(source=source):
+                argv=['Open AP','--interface','wlan0','--template','welcome']
+                if source=='file':
+                    self.fixture.file('/run/open-ap-secret','\n',0o600)
+                    argv+=['--password-file','/run/open-ap-secret']
+                prompts=[]
+                def password_reader(prompt):prompts.append(prompt);return ''
+                with patch.object(ap.sys.stdin,'isatty',return_value=True),contextlib.redirect_stdout(io.StringIO()) as output:
+                    self.assertEqual(ap.share_main(argv,backend=self.service,password_reader=password_reader),0)
+                self.assertIn('open (no password)',output.getvalue())
+                self.assertEqual(self.service.load()['security'],'open')
+                self.assertEqual(len(prompts),1 if source=='prompt' else 0)
+                self.service.off()
+
+    def test_legacy_password_receipt_remains_loadable_and_recoverable(self):
+        self.start()
+        state=self.service.load();state.pop('security')
+        self.service.save(state)
+        self.assertEqual(self.service.status()['security'],'WPA2-PSK')
+        self.service.off()
 
     def test_wifi_mutation_hook_allows_independent_physical_radio_only(self):
         self.start()

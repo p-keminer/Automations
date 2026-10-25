@@ -32,6 +32,7 @@ class HostCompletionTests(unittest.TestCase):
         self.backends = self.root / completion.HOST_DIRECTORY
         self.data = self.root / 'data'
         self.support = self.root / 'support'
+        self.templates = self.root / 'templates'
         self.profile = self.root / completion.PROFILE_PATH
         self.helper = self.root / completion.PROFILE_HELPER
         self.sysroot = self.root / 'sys'
@@ -41,7 +42,7 @@ class HostCompletionTests(unittest.TestCase):
             'schema_version': 1, 'platform': 'kali-host',
             'protected_interfaces': ['wlp2s0'], 'ssh_service': 'ssh.service',
         }
-        for directory in (self.commands, self.backends, self.data, self.support,
+        for directory in (self.commands, self.backends, self.data, self.support, self.templates,
                           self.profile.parent, self.helper.parent, self.sysnet):
             directory.mkdir(parents=True, exist_ok=True)
         for bus in ('pci', 'usb', 'sdio'):
@@ -126,7 +127,7 @@ class HostCompletionTests(unittest.TestCase):
     def suggest(self, *words):
         result = completion.candidates(
             list(words), len(words) - 1, commands=self.commands, data=self.data,
-            sysnet=self.sysnet, support=self.support,
+            sysnet=self.sysnet, support=self.support, templates=self.templates,
             _profile_root=self.root, _owner_uid=self.owner_uid,
         )
         self.assertFalse(self.marker.exists(), 'Completion executed a command payload.')
@@ -153,9 +154,13 @@ class HostCompletionTests(unittest.TestCase):
         (self.data / 'share-ap-vm').chmod(0o644)
         self.assertEqual(self.suggest('auto', 'share', 'a'), ['ap'])
         self.assertEqual(set(self.suggest('auto', 'share', 'ap', '--')),
-                         {'--on', '--off', '--status', '--interface', '--password-file', '--help'})
+                         {'--on', '--off', '--status', '--interface', '--password-file', '--help', '--template'})
         self.assertEqual(self.suggest('auto', 'share', 'ap', '--interface', ''), ['wlp3s0', 'wlx1'])
         self.assertEqual(self.suggest('auto', 'share', 'ap', '--password-file', ''), [])
+        (self.templates/'welcome').mkdir()
+        (self.templates/'welcome/index.html').write_text('<h1>local</h1>')
+        self.assertEqual(self.suggest('auto', 'share', 'ap', '--template', 'wel'), ['welcome'])
+        self.assertEqual(self.suggest('auto', 'share', 'ap', '--template=wel'), ['--template=welcome'])
         (self.support / 'host_ap.py').chmod(0o666)
         self.assertEqual(self.suggest('auto', 'share', 'ap', '--'), [])
 
@@ -255,22 +260,24 @@ class HostCompletionTests(unittest.TestCase):
         (self.sysnet / 'wlx1/ifindex').write_text('0\n')
         self.assertEqual(self.suggest('auto', 'wifi', '--interface', ''), [])
 
-    def test_host_share_never_offers_pi_ap_or_legacy_interface_alias(self):
+    def test_host_share_keeps_legacy_alias_hidden_but_completes_its_values(self):
         with (self.data / 'share').open('a') as stream:
             stream.write('--interface\n')
         self.assertEqual(set(self.suggest('auto', 'share', '')), {'--wifi', '--lan', '--off', '--status', '--help', '--to', '--from'})
         self.assertEqual(self.suggest('auto', 'share', 'a'), [])
         self.assertEqual(self.suggest('auto', 'share', 'ap', ''), [])
-        self.assertEqual(self.suggest('auto', 'share', '--interface', ''), [])
-        self.assertEqual(self.suggest('auto', 'share', '--interface='), [])
+        self.assertEqual(set(self.suggest('auto', 'share', '--interface', '')), {'eth0','wlp3s0','wlx1'})
+        self.assertEqual(set(self.suggest('auto', 'share', '--interface=')), {'--interface=eth0','--interface=wlp3s0','--interface=wlx1'})
 
     def test_host_share_sources_are_physical_and_do_not_inherit_uplink_medium(self):
-        expected = {'eth0', 'wlp3s0', 'wlx1'}
+        expected = {'host', 'eth0', 'wlp3s0', 'wlx1'}
         for medium in ('--wifi', '--lan'):
             with self.subTest(medium=medium):
                 self.assertEqual(set(self.suggest('auto', 'share', medium, '--from', '')), expected)
         self.assertEqual(self.suggest('auto', 'share', '--wifi', '--from', 'eth0,wl'), ['eth0,wlp3s0', 'eth0,wlx1'])
         self.assertEqual(self.suggest('auto', 'share', '--lan', '--from=eth0,eth'), [])
+        self.assertEqual(self.suggest('auto', 'share', '--lan', '--from=host,'), [])
+        self.assertEqual(self.suggest('auto', 'share', '--lan', '--from=eth0,h'), [])
         self.assertEqual(set(self.suggest('auto', 'share', '--wifi', '--to', '')), {'wlp3s0', 'wlx1'})
         self.assertEqual(self.suggest('auto', 'share', '--lan', '--to', ''), ['eth0'])
 
@@ -281,7 +288,7 @@ class HostCompletionTests(unittest.TestCase):
         entry.mkdir()
         (entry / 'device').symlink_to((self.sysnet / 'eth0/device').resolve())
         self.radio('protected-sib', phy=0, index=8, shared='wlp2s0')
-        self.assertEqual(set(self.suggest('auto', 'share', '--from', '')), {'wlp3s0', 'wlx1'})
+        self.assertEqual(set(self.suggest('auto', 'share', '--from', '')), {'host','wlp3s0', 'wlx1'})
 
     def bridge(self):
         bridge = self.root / 'reader.py'

@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-"""Temporary, explicitly selected Kali-host WPA2 access point and SSID visibility."""
+"""Temporary Kali-host access point with optional password and SSID visibility."""
 
 from __future__ import annotations
 
@@ -28,6 +28,10 @@ IW = '/usr/sbin/iw'
 SYSTEMCTL = '/usr/bin/systemctl'
 SYSTEMD_RUN = '/usr/bin/systemd-run'
 DNSMASQ = '/usr/sbin/dnsmasq'
+PYTHON = '/usr/bin/python3'
+PORTAL = '/usr/local/libexec/automations-support/portal_templates.py'
+TEMPLATES = '/usr/local/share/automations/hotspot/templates'
+WEB = '/run/automations-host-ap-www'
 RUNTIME = '/run/automations-host-ap'
 LOCK = '/run/automations-host-ap.lock'
 COORDINATION_LOCKS = ('/run/automations-host-share.lock', LOCK, '/run/automations-wifi.lock')
@@ -85,6 +89,10 @@ def load_profile():
                 '_host_ap_profile').load_profile()
 
 
+def portal_module():
+    return peer('portal_templates.py', PORTAL, '_host_ap_portal')
+
+
 def run(args, *, timeout=15):
     try:
         result = subprocess.run(args, stdin=subprocess.DEVNULL, capture_output=True, text=True,
@@ -113,9 +121,9 @@ def validate_ssid(ssid):
 
 
 def validate_psk(psk):
-    require(isinstance(psk, str) and 8 <= len(psk) <= 63
-            and all(32 <= ord(char) <= 126 for char in psk),
-            'Use a WPA2 passphrase of 8 to 63 printable ASCII characters.')
+    require(isinstance(psk, str) and (psk == '' or (8 <= len(psk) <= 63
+            and all(32 <= ord(char) <= 126 for char in psk))),
+            'Use a WPA2 passphrase of 8 to 63 printable ASCII characters, or leave it empty for an open AP.')
     return psk
 
 
@@ -126,23 +134,27 @@ def key_escape(value):
 
 def keyfile(state, psk):
     adapter, identifier = state['adapter'], state['connection']
+    security = ('[wifi-security]\nkey-mgmt=wpa-psk\nproto=rsn;\npairwise=ccmp;\ngroup=ccmp;\npsk='
+                + key_escape(psk) + '\n') if psk else ''
     # PSK is never part of saved JSON or process arguments.
     return ('[connection]\nid=automations-host-ap-' + identifier + '\nuuid=' + identifier
             + '\ntype=wifi\ninterface-name=' + adapter['name'] + '\nautoconnect=false\nauth-retries=0\n'
             '[wifi]\nmode=ap\nband=bg\nchannel=6\nssid=' + ';'.join(str(byte) for byte in state['ssid'].encode('utf-8')) + ';'
             + '\nhidden=' + ('true' if state['hidden'] else 'false')
             + '\ncloned-mac-address=permanent\nap-isolation=1\n'
-            '[wifi-security]\nkey-mgmt=wpa-psk\nproto=rsn;\npairwise=ccmp;\ngroup=ccmp;\npsk='
-            + key_escape(psk) + '\n[ipv4]\nmethod=manual\naddress1=' + ADDRESS
+            + security + '[ipv4]\nmethod=manual\naddress1=' + ADDRESS
             + '\nnever-default=true\n[ipv6]\nmethod=disabled\n')
 
 
 def dhcp_config(state):
-    return ('port=0\nno-resolv\nno-hosts\nuser=root\ngroup=root\ninterface=' + state['adapter']['name']
+    text = ('port=53\nlisten-address=10.79.0.1\nno-resolv\nno-poll\nno-hosts\nuser=root\ngroup=root\ninterface=' + state['adapter']['name']
             + '\nbind-interfaces\nexcept-interface=lo\ndhcp-authoritative\n'
             'dhcp-range=10.79.0.20,10.79.0.200,255.255.255.0,1h\n'
             'dhcp-option=option:router,10.79.0.1\ndhcp-option=option:dns-server,10.79.0.1\n'
             'dhcp-leasefile=' + RUNTIME + '/leases\n')
+    for host in portal_module().CAPTIVE_HOSTS:
+        text += 'address=/' + host + '/10.79.0.1\nlocal=/' + host + '/\n'
+    return text
 
 
 class HostAP:
@@ -179,7 +191,7 @@ class HostAP:
         return path
 
     def command(self, args, *, timeout=15):
-        require(args[0] in (NMCLI, IP, IW, SYSTEMCTL, SYSTEMD_RUN, DNSMASQ), 'Unsupported AP executable.')
+        require(args[0] in (NMCLI, IP, IW, SYSTEMCTL, SYSTEMD_RUN, DNSMASQ, PYTHON), 'Unsupported AP executable.')
         target = self.trusted(args[0])
         require(target.stat().st_mode & 0o111, 'AP system tool is not executable.')
         result = self.runner(list(args), timeout=timeout)
@@ -245,9 +257,18 @@ class HostAP:
         self.private_write(RUNTIME + '/state.json', json.dumps(state, sort_keys=True) + '\n', replace=True)
 
     def validate_state(self, state):
-        require(type(state) is dict and set(state) == {'format', 'run_id', 'connection', 'profile_identity',
-                'boot_id', 'phase', 'adapter', 'ssid', 'hidden', 'original_autoconnect', 'key_sha256', 'dhcp'},
+        fields = {'format', 'run_id', 'connection', 'profile_identity',
+                  'boot_id', 'phase', 'adapter', 'ssid', 'hidden', 'original_autoconnect', 'key_sha256', 'dhcp'}
+        portal_fields = {'template', 'template_sha256', 'portal_files'}
+        require(type(state) is dict and set(state) in (fields, fields | portal_fields,
+                fields | {'security'}, fields | portal_fields | {'security'}),
                 'Invalid host AP receipt fields.')
+        require(state.get('security', 'WPA2-PSK') in ('open', 'WPA2-PSK'), 'Invalid host AP security mode.')
+        if 'template' in state:
+            require(isinstance(state['template'], str) and portal_module().NAME.fullmatch(state['template'])
+                    and isinstance(state['template_sha256'], str) and DIGEST.fullmatch(state['template_sha256']),
+                    'Invalid host AP portal identity.')
+            portal_module().validate_manifest(state['portal_files'])
         require(state['format'] == 'AUTOMATIONS_HOST_AP.v1'
                 and state['profile_identity'] == self.profile.identity and state['boot_id'] == self.boot()
                 and state['phase'] in ('preparing', 'active', 'changing', 'cleanup')
@@ -275,7 +296,7 @@ class HostAP:
             require(not list(path.parent.iterdir()), 'Unrecognized unfinished AP runtime.')
             return None
         self.trusted(RUNTIME + '/state.json', private=True)
-        require(path.stat().st_size <= 16384, 'Host AP receipt is too large.')
+        require(path.stat().st_size <= 65536, 'Host AP receipt is too large.')
         state = json.loads(path.read_text(), object_pairs_hook=unique)
         self.validate_state(state)
         return state
@@ -341,7 +362,7 @@ class HostAP:
                     'connection.autoconnect': 'no', '802-11-wireless.mode': 'ap',
                     '802-11-wireless.ssid': state['ssid'], '802-11-wireless.hidden': 'yes' if state['hidden'] else 'no',
                     '802-11-wireless.band': 'bg', '802-11-wireless.channel': '6',
-                    '802-11-wireless-security.key-mgmt': 'wpa-psk', 'ipv4.method': 'manual',
+                    '802-11-wireless-security.key-mgmt': '' if state.get('security') == 'open' else 'wpa-psk', 'ipv4.method': 'manual',
                     'ipv4.addresses': ADDRESS, 'ipv4.never-default': 'yes', 'ipv6.method': 'disabled'}
         for field, value in expected.items():
             require(self.nm_value(field, 'connection', 'show', 'uuid', identifier) == value,
@@ -418,6 +439,85 @@ class HostAP:
             self.command([SYSTEMCTL, 'stop', self.unit(state)], timeout=30)
             require(not self.verify_service(state, required=False), 'Owned AP DHCP service did not stop.')
 
+    def select_template(self, name=None):
+        try:
+            return portal_module().select(name, self.path(TEMPLATES), owner_uid=self.uid, anchor=self.root)
+        except ValueError as exc:
+            raise Error(str(exc)) from None
+
+    def portal_unit(self, state):
+        return 'automations-host-ap-web-' + state['run_id'] + '.service'
+
+    def portal_args(self):
+        return [PYTHON, PORTAL, '--serve', '--directory', WEB, '--bind', ADDRESS.split('/')[0]]
+
+    def portal_info(self, state):
+        text = self.command([SYSTEMCTL, 'show', self.portal_unit(state),
+            '--property=ActiveState,MainPID,Transient,Description,LoadState,FragmentPath,DropInPaths,Type,User,Group,KillMode,ExecStart'])
+        return dict(line.split('=', 1) for line in text.splitlines() if '=' in line)
+
+    def verify_portal(self, state, *, required=True):
+        values = self.portal_info(state)
+        if values.get('LoadState') == 'not-found':
+            require(not required, 'Owned AP portal service is not running.')
+            return False
+        expected = (r'\{ path=' + re.escape(PYTHON) + r' ; argv\[\]=' + re.escape(' '.join(self.portal_args()))
+            + r' ; ignore_errors=no ; start_time=[^;{}\r\n]+ ; stop_time=[^;{}\r\n]+'
+            + r' ; pid=[0-9]+ ; code=[^;{}\r\n]+ ; status=[^;{}\r\n]+ \}')
+        user = 'nobody' if self.uid == 0 else str(self.uid)
+        require(values.get('Transient') == 'yes' and values.get('Type') == 'exec'
+            and values.get('Description') == 'Automations host AP portal ' + state['run_id']
+            and values.get('FragmentPath') == '/run/systemd/transient/' + self.portal_unit(state)
+            and values.get('DropInPaths') == '' and values.get('User') == user
+            and values.get('KillMode') == 'control-group' and re.fullmatch(expected, values.get('ExecStart', '')),
+            'AP portal service identity changed.')
+        if values.get('ActiveState') in ('inactive', 'failed'):
+            require(not required, 'Owned AP portal service is not running.')
+            return False
+        require(values.get('ActiveState') == 'active' and re.fullmatch(r'[1-9][0-9]*', values.get('MainPID', '')),
+                'AP portal service identity changed.')
+        process = self.path('/proc/' + values['MainPID'])
+        import pwd
+        uid = pwd.getpwnam('nobody').pw_uid if self.uid == 0 else self.uid
+        require(process.stat().st_uid == uid and (process/'cmdline').read_bytes().rstrip(b'\0').split(b'\0')
+                == [word.encode() for word in self.portal_args()], 'AP portal process identity changed.')
+        return True
+
+    def start_portal(self, state):
+        pages = portal_module()
+        pages.verify_runtime(self.path(WEB), state['portal_files'], owner_uid=self.uid, anchor=self.root)
+        self.trusted(PORTAL)
+        values = self.portal_info(state)
+        if values.get('LoadState') == 'not-found':
+            self.command([SYSTEMD_RUN, '--quiet', '--collect', '--unit=' + self.portal_unit(state),
+                '--description=Automations host AP portal ' + state['run_id'],
+                '--property=Type=exec', '--property=Restart=no', '--property=KillMode=control-group',
+                '--property=User=' + ('nobody' if self.uid == 0 else str(self.uid)),
+                '--property=UMask=0077', '--property=NoNewPrivileges=yes',
+                '--property=ProtectSystem=strict', '--property=ProtectHome=yes', '--property=PrivateTmp=yes',
+                '--property=CapabilityBoundingSet=CAP_NET_BIND_SERVICE',
+                '--property=AmbientCapabilities=CAP_NET_BIND_SERVICE', '--property=RestrictAddressFamilies=AF_INET AF_UNIX',
+                '--', *self.portal_args()])
+        else:
+            require(not self.verify_portal(state, required=False), 'Owned AP portal service is already running.')
+            self.command([SYSTEMCTL, 'start', self.portal_unit(state)], timeout=30)
+        self.verify_portal(state)
+        probe = ('import hashlib,time,urllib.request; expected=' + repr(state['portal_files']['index.html']) + '\n'
+            'for attempt in range(20):\n'
+            ' try:\n'
+            '  response=urllib.request.urlopen("http://10.79.0.1/",timeout=1)\n'
+            '  assert response.status==200 and hashlib.sha256(response.read()).hexdigest()==expected\n'
+            '  break\n'
+            ' except OSError:\n'
+            '  if attempt==19: raise\n'
+            '  time.sleep(.1)\n')
+        self.command([PYTHON, '-c', probe], timeout=25)
+
+    def stop_portal(self, state):
+        if self.verify_portal(state, required=False):
+            self.command([SYSTEMCTL, 'stop', self.portal_unit(state)], timeout=30)
+            require(not self.verify_portal(state, required=False), 'Owned AP portal service did not stop.')
+
     def quiescent(self, state):
         adapter = self.adapter(state=state)
         current = self.platform().read_state(adapter)
@@ -455,28 +555,57 @@ class HostAP:
                         'The AP subnet conflicts with an existing IPv4 route.')
         return current
 
+    def select_interface(self, name=None, *, stdin=None, stdout=None):
+        if name is not None:
+            return name
+        candidates = {}
+        for name, adapter in sorted(self.platform().devices().items()):
+            try:
+                self.platform().guard(adapter, exclusive=True)
+                self.preflight(adapter)
+                candidates[name] = adapter
+            except (RuntimeError, OSError, ValueError):
+                continue
+        choices = peer('adapter_selection.py', '/usr/local/libexec/automations-support/adapter_selection.py', '_host_ap_choices')
+        try:
+            name = choices.choose([(name, adapter.bus.upper() + ' ' + adapter.hardware_id)
+                                   for name,adapter in candidates.items()],
+                                  'Several AP adapters exist; use --interface IFACE in non-interactive commands.',
+                                  stdin=stdin, stdout=stdout)
+        except ValueError as exc:
+            raise Error(str(exc)) from None
+        require(self.adapter(name) == candidates[name], 'The selected AP hardware changed during selection.')
+        return name
+
     def verify_forwarding_off(self, name):
         require(NAME.fullmatch(name), 'Invalid AP forwarding interface.')
         value = self.path('/proc/sys/net/ipv4/conf/' + name + '/forwarding').read_text().strip()
         require(value == '0', 'The AP radio already forwards packets; disable that external forwarding policy first.')
 
-    def on(self, name, ssid, psk, *, hidden=False, dhcp=True):
+    def on(self, name, ssid, psk, *, hidden=False, dhcp=True, template='welcome'):
         self.mutation()
         validate_ssid(ssid)
         validate_psk(psk)
         require(type(hidden) is bool and type(dhcp) is bool, 'Invalid AP options.')
+        pages = portal_module()
+        template = self.select_template(template)
+        source = pages.snapshot(template, self.path(TEMPLATES), owner_uid=self.uid, anchor=self.root)
+        files = pages.render(source, ssid)
         with self.lock():
             require(self.load() is None, 'An owned AP already exists; stop it before changing its SSID or radio.')
             self.verify_share_off()
             adapter = self.adapter(name)
             original = self.preflight(adapter)
+            require(not self.path(WEB).exists() and not self.path(WEB).is_symlink(), 'The reserved portal runtime directory already exists.')
             self.path(RUNTIME).mkdir(mode=0o700, exist_ok=True)
             self.trusted(RUNTIME, directory=True, private=True)
             self.trusted(NM_DIR, directory=True)
             state = dict(format='AUTOMATIONS_HOST_AP.v1', run_id=str(uuid.uuid4()), connection=str(uuid.uuid4()),
                          profile_identity=self.profile.identity, boot_id=self.boot(), phase='preparing',
                          adapter=dict(adapter._asdict()), ssid=ssid, hidden=hidden,
-                         original_autoconnect=original.autoconnect, key_sha256='0' * 64, dhcp=dhcp)
+                         original_autoconnect=original.autoconnect, key_sha256='0' * 64, dhcp=dhcp,
+                         security='WPA2-PSK' if psk else 'open',
+                         template=template, template_sha256=pages.digest(source), portal_files=pages.manifest(files))
             contents = keyfile(state, psk)
             state['key_sha256'] = hashlib.sha256(contents.encode()).hexdigest()
             psk = None
@@ -486,6 +615,7 @@ class HostAP:
                 self.private_write(self.key_path(state), contents)
                 contents = None
                 self.private_write(RUNTIME + '/dnsmasq.conf', dhcp_config(state))
+                pages.write_runtime(self.path(WEB), files, owner_uid=self.uid, anchor=self.root)
                 self.adapter(state=state)
                 self.command([NMCLI, 'device', 'set', name, 'autoconnect', 'no'])
                 self.command([NMCLI, 'connection', 'load', self.key_path(state)])
@@ -497,6 +627,7 @@ class HostAP:
                 self.verify_forwarding_off(name)
                 if dhcp:
                     self.start_dhcp(state)
+                self.start_portal(state)
                 state['phase'] = 'active'
                 self.save(state)
                 return self.status()
@@ -518,8 +649,11 @@ class HostAP:
         self.verify_profile(state, active=True)
         if state['dhcp']:
             self.verify_service(state)
+        if 'template' in state:
+            self.verify_portal(state)
         return dict(active=True, phase='active', interface=state['adapter']['name'], ssid=state['ssid'],
-                    hidden=state['hidden'], dhcp=state['dhcp'])
+                    hidden=state['hidden'], dhcp=state['dhcp'], template=state.get('template'),
+                    security=state.get('security', 'WPA2-PSK'))
 
     def cleanup(self, state):
         self.verify_share_off(state)
@@ -533,6 +667,10 @@ class HostAP:
                 'Unrecognized AP runtime files; nothing will be removed.')
         for item in runtime.iterdir():
             self.runtime_member(item.name)
+        if 'template' in state:
+            if self.path(WEB).exists() or self.path(WEB).is_symlink():
+                portal_module().verify_runtime(self.path(WEB), state['portal_files'], owner_uid=self.uid, anchor=self.root, partial=True)
+            self.verify_portal(state, required=False)
         active = self.nm_value('GENERAL.CON-UUID', 'device', 'show', adapter.name)
         require(active in ('', '--', state['connection']), 'Another connection replaced the AP; refusing to disconnect it.')
         known = self.nm_value('UUID', 'connection', 'show').splitlines()
@@ -542,6 +680,8 @@ class HostAP:
         service_present = self.verify_service(state, required=False) if state['dhcp'] else False
         state['phase'] = 'cleanup'
         self.save(state)
+        if 'template' in state:
+            self.stop_portal(state)
         if service_present:
             self.stop_dhcp(state)
         if active == state['connection']:
@@ -559,6 +699,8 @@ class HostAP:
         self.command([NMCLI, 'device', 'set', adapter.name, 'autoconnect',
                       'yes' if state['original_autoconnect'] else 'no'])
         # nmcli delete removes the owned runtime keyfile; no other profile is touched.
+        if 'template' in state and self.path(WEB).exists():
+            portal_module().remove_runtime(self.path(WEB), state['portal_files'], owner_uid=self.uid, anchor=self.root)
         for item in tuple(runtime.iterdir()):
             if item.name != 'state.json':
                 self.runtime_member(item.name).unlink()
@@ -594,6 +736,8 @@ class HostAP:
             state['phase'] = 'changing'
             self.save(state)
             try:
+                if 'template' in state:
+                    self.stop_portal(state)
                 if state['dhcp']:
                     self.stop_dhcp(state)
                 self.command([NMCLI, '--wait', '30', 'connection', 'down', 'uuid', state['connection']], timeout=40)
@@ -611,6 +755,8 @@ class HostAP:
                 self.verify_forwarding_off(state['adapter']['name'])
                 if state['dhcp']:
                     self.start_dhcp(state)
+                if 'template' in state:
+                    self.start_portal(state)
                 state['phase'] = 'active'
                 self.save(state)
                 return self.status()
@@ -622,12 +768,17 @@ class HostAP:
 
 def print_status(value):
     print('Host access point: ' + value['phase'])
+    print('Template directory: ' + TEMPLATES)
     if value['active']:
         print('Interface: ' + value['interface'])
         print('SSID: ' + json.dumps(value['ssid'], ensure_ascii=True))
         print('Visibility: ' + ('hidden' if value['hidden'] else 'visible'))
-        print('Security: WPA2-PSK / CCMP; client isolation enabled')
+        print('Security: ' + ('open (no password)' if value.get('security') == 'open' else 'WPA2-PSK / CCMP')
+              + '; client isolation enabled')
         print('IPv4: ' + ADDRESS + ('; DHCP enabled' if value['dhcp'] else '; DHCP disabled'))
+        if value.get('template'):
+            print('Portal template: ' + value['template'])
+            print('Portal: http://10.79.0.1/')
         print('Internet requires an explicit auto share selection; no automatic forwarding or NAT is created.')
 
 
@@ -678,31 +829,33 @@ def main(argv=None, *, profile=None, backend=None, command='ap', password_reader
         for name in ('visible', 'invisible', 'status'):
             actions.add_argument('--' + name, dest='action', action='store_const', const=name)
     else:
-        parser.add_argument('ssid', nargs='?', help='SSID for the temporary WPA2 AP; a hidden password prompt follows')
-        parser.add_argument('--interface', metavar='IFACE', help='Explicit idle AP radio')
+        parser.add_argument('ssid', nargs='?', help='SSID for the temporary AP; a hidden password prompt follows (empty = open)')
+        parser.add_argument('--interface', metavar='IFACE', help='Idle AP radio; otherwise select from eligible adapters')
         parser.add_argument('--password-file', metavar='PATH', help='Root-owned mode-0600 private passphrase file instead of a prompt')
+        parser.add_argument('--template', metavar='NAME', help='Portal directory name; otherwise ask and list available templates')
         for name in ('on', 'off', 'status'):
             actions.add_argument('--' + name, dest='action', action='store_const', const=name)
     args = parser.parse_args(argv)
-    if command != 'ap' and ((args.ssid is not None or args.interface or args.password_file) and args.action in ('off', 'status')):
+    if command != 'ap' and ((args.ssid is not None or args.interface or args.password_file or args.template is not None) and args.action in ('off', 'status')):
         parser.error('SSID, --interface and --password-file cannot be combined with --off/--status')
     try:
         service = backend or HostAP(profile if profile is not None else load_profile())
         if command == 'ap' and args.action in ('visible', 'invisible'):
             value = service.visibility(args.action == 'invisible')
         elif command != 'ap' and (args.ssid is not None or args.action == 'on'):
-            require(args.interface, 'Choose the AP radio explicitly with --interface IFACE.')
             require(args.password_file or sys.stdin.isatty(), 'AP creation needs a hidden passphrase prompt or private --password-file.')
             require(args.ssid is not None or sys.stdin.isatty(), 'Provide an SSID in non-interactive commands.')
             ssid = args.ssid if args.ssid is not None else input('AP SSID: ')
+            template = service.select_template(args.template)
+            interface = service.select_interface(args.interface)
             password = (read_password_file(service, args.password_file) if args.password_file else
-                        password_reader('AP WPA2 passphrase (8-63 characters): '))
-            value = service.on(args.interface, ssid, password)
+                        password_reader('AP password (empty = open network): '))
+            value = service.on(interface, ssid, password, template=template)
             password = None
         elif command != 'ap' and args.action == 'off':
             value = service.off()
         else:
-            if command != 'ap' and (args.interface or args.password_file):
+            if command != 'ap' and (args.interface or args.password_file or args.template is not None):
                 parser.error('--interface/--password-file require an SSID or --on')
             value = service.status()
         print_status(value)

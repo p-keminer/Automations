@@ -1,6 +1,6 @@
 Additional USB welcome AP
 
-sudo auto share ap "SSID" [--interface IFACE]  Start or rename the AP.
+sudo auto share ap "SSID" [--interface IFACE] [--template NAME]  Start or rename the AP.
 sudo auto share ap --status                  Interface, SSID, uptime, clients, web paths.
 sudo auto share ap --off                     Stop the AP; ctrl0 is unchanged.
 sudo auto share ap --help                    Command help.
@@ -27,9 +27,12 @@ Automatic captive-window opening depends on the phone/OS; use HTTP directly if
 needed. Only web, DNS and DHCP are available; no SSH or Guacamole, and no access
 to the control/private upstream networks. Stations are isolated.
 
-Template: /usr/local/share/automations/hotspot/welcome.html
-Template directory: /usr/local/share/automations/hotspot
-Served web files: /run/automations-hotspot-www (generated while the AP runs).
---status shows these paths even while the AP is off.
-Edit with sudo, retain {{SSID}}, then restart/rename the AP. SSID substitution
-is HTML escaped. The page has no password/login form or external assets.
+Templates: /usr/local/share/automations/hotspot/templates/NAME/index.html
+--template NAME selects the directory name. Omit it for a numbered terminal
+selection; non-interactive commands must provide the name explicitly.
+Place local HTML/CSS/JS/images in that directory and manage templates with sudo.
+{{SSID}} is optional and HTML escaped. Starting the AP snapshots the chosen
+bundle; other installed templates are unchanged.
+Web files: Pi /run/automations-hotspot-www, Kali host /run/automations-host-ap-www.
+--status shows the selection. Portable Kali serves HTTP at the same address;
+HTTPS with the Pi4 CA applies only on the Pi. Control WLAN keeps Guacamole.

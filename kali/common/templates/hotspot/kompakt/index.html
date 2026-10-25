@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Willkommen im WLAN {{SSID}}</title>
+  <link rel="stylesheet" href="/assets/theme.css">
+</head>
+<body>
+  <main aria-labelledby="welcome-title">
+    <header>
+      <span class="wordmark">Zu Gast.</span>
+      <svg viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+        <path d="M7 17a29 29 0 0 1 34 0M13 25a19 19 0 0 1 22 0M19 33a9 9 0 0 1 10 0"/>
+        <circle cx="24" cy="40" r="2.5" fill="currentColor" stroke="none"/>
+      </svg>
+    </header>
+    <p class="eyebrow">Willkommen</p>
+    <h1 id="welcome-title">Schön, dass<br>du da bist.</h1>
+    <section class="network" aria-labelledby="network-title">
+      <h2 id="network-title">Dein WLAN</h2>
+      <p class="ssid">{{SSID}}</p>
+    </section>
+    <p class="description">Du bist mit dem lokalen WLAN verbunden. Internet steht dir zur Verfügung, sobald es für dieses Netz freigegeben ist.</p>
+    <footer>Du kannst dieses Fenster schließen.<br>Die WLAN-Verbindung bleibt bestehen.</footer>
+  </main>
+</body>
+</html>

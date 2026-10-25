@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "id": "auto-cli",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "name": "Automations command entry point",
   "description": "Dispatch installed commands and provide Bash/Zsh completion from metadata without executing module code.",
   "default_enabled": false,

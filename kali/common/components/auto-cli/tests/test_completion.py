@@ -27,6 +27,8 @@ class CompletionTests(unittest.TestCase):
         self.sysnet = self.root / "sysnet"
         self.support = self.root / "support"
         self.state = self.root / "state.json"
+        self.templates = self.root / "templates"
+        self.templates.mkdir()
         self.boot_id = self.root / "boot-id"
         self.boot_id.write_text(
             "2590d118-5f40-4d19-9437-2c378a281ab0\n", encoding="utf-8"
@@ -76,7 +78,7 @@ class CompletionTests(unittest.TestCase):
         path = self.support / "hotspot.py"
         path.write_text("# Installed hotspot support fixture.\n", encoding="utf-8")
         path.chmod(0o644)
-        self.options("share-ap", "--interface", "--off", "--status", "--help")
+        self.options("share-ap", "--interface", "--off", "--status", "--help", "--template")
         return path
 
     def suggest(self, *words):
@@ -84,8 +86,25 @@ class CompletionTests(unittest.TestCase):
             list(words), len(words) - 1,
             commands=self.commands, data=self.data,
             sysnet=self.sysnet, support=self.support,
-            state=self.state, boot_id=self.boot_id, _profile_root=self.root,
+            state=self.state, boot_id=self.boot_id, templates=self.templates, _profile_root=self.root,
         )
+
+    def test_template_names_and_equals_values_without_file_fallback(self):
+        self.hotspot()
+        for name in ('welcome', 'workshop'):
+            path = self.templates / name
+            path.mkdir()
+            (path / 'index.html').write_text('<html>static</html>')
+        (self.templates / 'incomplete').mkdir()
+        (self.templates / 'linked').symlink_to(self.templates / 'welcome')
+        self.assertEqual(self.suggest('auto', 'share', 'ap', '--template', 'w'), ['welcome', 'workshop'])
+        self.assertEqual(self.suggest('auto', 'share', 'ap', '--template=wel'), ['--template=welcome'])
+        self.assertEqual(self.suggest('auto', 'share', 'ap', '--template', '../'), [])
+        self.assertEqual(self.suggest('auto', 'share', '--template', ''), [])
+        self.assertEqual(self.bash_suggest('auto share ap Guest --template wel',
+            ['auto','share','ap','Guest','--template','wel'],5), ['welcome'])
+        self.assertEqual(self.bash_suggest('auto share ap --template=wel',
+            ['auto','share','ap','--template','=','wel'],5), ['welcome'])
 
     def active_ap(self):
         veth = self.sysnet / "autoap0"
@@ -109,6 +128,7 @@ class CompletionTests(unittest.TestCase):
         source = source.replace("_profile_root=Path('/')",
                                 "_profile_root=Path(" + repr(str(self.root)) + ")")
         for installed, fixture in (
+            ("/usr/local/share/automations/hotspot/templates", self.templates),
             ("/usr/local/libexec/automations", self.commands),
             ("/usr/local/share/automations/completions", self.data),
             ("/sys/class/net", self.sysnet),
@@ -240,7 +260,7 @@ class CompletionTests(unittest.TestCase):
         self.hotspot()
         self.assertEqual(
             set(self.suggest("auto", "share", "ap", "--")),
-            {"--interface", "--off", "--status", "--help"},
+            {"--interface", "--off", "--status", "--help", "--template"},
         )
         self.assertEqual(self.suggest("auto", "share", "a"), ["ap"])
         self.assertEqual(

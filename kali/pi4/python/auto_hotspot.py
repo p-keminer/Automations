@@ -26,11 +26,9 @@ WEB = Path('/run/automations-hotspot-www')
 NS = 'auto-hotspot'
 UNIT = 'automations-hotspot.service'
 WORKER = '/usr/local/libexec/automations-support/hotspot.py'
-TEMPLATE = Path('/usr/local/share/automations/hotspot/welcome.html')
+TEMPLATES = Path('/usr/local/share/automations/hotspot/templates')
 STATE = BASE/'state.json'
 CHANNEL = 6
-CAPTIVE_HOSTS = ('pi4','captive.apple.com','www.apple.com','connectivitycheck.gstatic.com',
-                 'connectivitycheck.android.com','clients3.google.com','www.msftconnecttest.com','www.msftncsi.com')
 
 
 class Error(RuntimeError): pass
@@ -62,6 +60,11 @@ def modules():
     s=support()
     return (s,s.load_peer('auto_wifi.py','/usr/local/libexec/automations/wifi','_hotspot_wifi'),
             s.load_peer('auto_share.py','/usr/local/libexec/automations/share','_hotspot_share'))
+
+
+def portal():
+    return support().load_peer('portal_templates.py',
+        '/usr/local/libexec/automations-support/portal_templates.py', '_hotspot_portal')
 
 
 def run(args, *, text=None, accepted=(0,), timeout=25):
@@ -96,7 +99,7 @@ def save(value): write_private(STATE,json.dumps(value,ensure_ascii=True)+'\n')
 def load():
     if not STATE.exists(): return None
     p=trusted(STATE)
-    require(p.stat().st_size<=16384 and stat.S_IMODE(p.stat().st_mode)==0o600,'Unsafe AP state.')
+    require(p.stat().st_size<=65536 and stat.S_IMODE(p.stat().st_mode)==0o600,'Unsafe AP state.')
     s=json.loads(p.read_text())
     require(s.get('version')==1 and s.get('boot_id')==Path('/proc/sys/kernel/random/boot_id').read_text().strip(), 'Invalid AP boot identity.')
     require(isinstance(s.get('adapter'),list) and len(s['adapter'])==6 and s['adapter'][0]!='ctrl0'
@@ -109,6 +112,10 @@ def load():
         and len(s['steps'])==len(set(s['steps'])) and set(s['steps']) <= {'namespace','radio','veth','route'}
         and type(s.get('original_managed')) is bool and type(s.get('original_autoconnect')) is bool
         and (s.get('original_connection') is None or re.fullmatch(r'[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}',s['original_connection'])),'Invalid AP state.')
+    if 'template' in s:
+        require(isinstance(s['template'],str) and re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,63}',s['template'])
+            and re.fullmatch(r'[0-9a-f]{64}',s.get('template_sha256','')),'Invalid AP portal identity.')
+        portal().validate_manifest(s.get('portal_files'))
     return s
 
 
@@ -147,7 +154,7 @@ def hostapd_config(name,ssid,psk):
 
 def render(template,ssid):
     validate_ssid(ssid)
-    require(len(template.encode())<=65536 and '{{SSID}}' in template and '\0' not in template,'The welcome template must be UTF-8, at most 64 KiB, and contain {{SSID}}.')
+    require(len(template.encode())<=2*1024*1024 and '\0' not in template,'The portal HTML must be UTF-8, at most 2 MiB, without NUL bytes.')
     return template.replace('{{SSID}}',html.escape(ssid,quote=True))
 
 
@@ -173,12 +180,15 @@ chain output {{ type filter hook output priority 0; policy accept; }}
 
 
 def nginx_config(guest):
+    redirects='\n'.join(f'location = {path} {{ return 302 http://{guest["address"]}/; }}'
+                        for path in sorted(portal().CAPTIVE_PATHS))
     return f'''user www-data;
 worker_processes 1;
 pid {BASE}/nginx.pid;
 error_log stderr crit;
 events {{ worker_connections 128; }}
 http {{
+include /etc/nginx/mime.types;
 access_log off;
 server_tokens off;
 client_max_body_size 1k;
@@ -193,13 +203,19 @@ ssl_certificate /etc/pi4/tls/server.crt;
 ssl_certificate_key /etc/pi4/tls/server.key;
 ssl_protocols TLSv1.2 TLSv1.3;
 ssl_session_tickets off;
+if ($host != {guest['address']}) {{ return 302 http://{guest['address']}/; }}
 root {WEB};
-default_type text/html;
+default_type application/octet-stream;
+index index.html;
+autoindex off;
+disable_symlinks on;
 add_header Cache-Control "no-store" always;
 add_header X-Content-Type-Options "nosniff" always;
 add_header Referrer-Policy "no-referrer" always;
-add_header Content-Security-Policy "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'" always;
-location / {{ limit_except GET HEAD {{ deny all; }} try_files /index.html =503; }}
+add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'" always;
+location ~ /\\. {{ deny all; }}
+{redirects}
+location / {{ limit_except GET HEAD {{ deny all; }} try_files $uri $uri/ /index.html; }}
 }}
 }}\n'''
 
@@ -219,7 +235,14 @@ def shared_change(share,selection):
         print(share.Platform().change(selection['mode'],selection['interface'],sources) if selection else share.Platform().change('off'),flush=True)
 
 
-def request(ssid,interface):
+def request(ssid,interface,template=None):
+    pages=portal()
+    try:
+        selected=pages.select(template,TEMPLATES)
+        source=pages.snapshot(selected,TEMPLATES)
+    except ValueError as exc:
+        raise Error(str(exc)) from None
+    files=pages.render(source,ssid)
     helper,wifi,share=modules(); p=wifi.Platform()
     active=load()
     devices=p.devices(); candidates=wifi.external_adapters(devices)
@@ -264,7 +287,8 @@ def request(ssid,interface):
                 save({'version':1,'boot_id':Path('/proc/sys/kernel/random/boot_id').read_text().strip(),
                     'adapter':list(adapter),'ssid':ssid,'security':'WPA2-PSK' if psk else 'open','steps':[],
                     'original_managed':original.managed,'original_autoconnect':original.autoconnect,
-                    'original_connection':original.connection,'phase':'starting'})
+                    'original_connection':original.connection,'phase':'starting',
+                    'template':selected,'template_sha256':pages.digest(source),'portal_files':pages.manifest(files)})
                 write_private(BASE/'hostapd.conf',hostapd_config(interface,ssid,psk));psk=None
             run(['/usr/bin/systemctl','start',UNIT],timeout=65)
             require(load() and load()['phase']=='active','The welcome AP did not become ready.')
@@ -326,6 +350,11 @@ def watch_radio(s, children, stopped):
 def worker():
     helper,wifi,share=modules();g=helper.GUEST
     s=load();require(s is not None,'No AP request is available.')
+    pages=portal()
+    source=pages.snapshot(s['template'],TEMPLATES)
+    require(pages.digest(source)==s['template_sha256'],'The selected portal template changed before AP activation; retry.')
+    files=pages.render(source,s['ssid'])
+    require(pages.manifest(files)==s['portal_files'],'The portal snapshot changed before AP activation.')
     children=[]; stop=False
     def terminated(signum,frame):
         nonlocal stop
@@ -361,14 +390,12 @@ def worker():
             run(['/usr/sbin/ip','route','add',g['network'],'via',g['peer'],'dev',g['interface'],'proto','static'])
             inside('/usr/sbin/sysctl','-q','-w','net.ipv4.ip_forward=1')
             inside('/usr/sbin/nft','-f','-',text=namespace_firewall(adapter.name,g))
-            trusted(TEMPLATE);require(TEMPLATE.stat().st_size<=65536,'The welcome template exceeds 64 KiB.')
-            WEB.mkdir(mode=0o755,exist_ok=False);WEB.chmod(0o755)
-            target=WEB/'index.html';target.write_text(render(TEMPLATE.read_text(encoding='utf-8'),s['ssid']),encoding='utf-8');target.chmod(0o644)
+            pages.write_runtime(WEB,files)
             write_private(BASE/'nginx.conf',nginx_config(g))
             dns=(f'interface={adapter.name}\nbind-interfaces\nexcept-interface=lo\nno-resolv\nno-hosts\n'
                 f'dhcp-range=10.79.0.20,10.79.0.200,255.255.255.0,1h\ndhcp-option=3,{g["address"]}\ndhcp-option=6,{g["address"]}\n'
                 'dhcp-authoritative\nleasefile-ro\nserver=10.78.0.1#1053\ndomain-needed\nbogus-priv\n')
-            for host in CAPTIVE_HOSTS:dns+=f'address=/{host}/{g["address"]}\nlocal=/{host}/\n'
+            for host in ('pi4',*pages.CAPTIVE_HOSTS):dns+=f'address=/{host}/{g["address"]}\nlocal=/{host}/\n'
             write_private(BASE/'dnsmasq.conf',dns)
             inside('/usr/sbin/dnsmasq','--test','--conf-file='+str(BASE/'dnsmasq.conf'))
             inside('/usr/sbin/nginx','-t','-c',str(BASE/'nginx.conf'),'-p',str(BASE)+'/')
@@ -379,7 +406,8 @@ def worker():
                 children.append(subprocess.Popen(['/usr/sbin/ip','netns','exec',NS,*cmd],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL))
             s['radio_status']=wait_radio(adapter.name,children,lambda:stop)
             # A connection alone is not enough: verify the welcome response in the namespace.
-            probe='import urllib.request; r=urllib.request.urlopen("http://10.79.0.1/",timeout=3); assert r.status==200 and b"<h1" in r.read()'
+            probe=('import hashlib,urllib.request; r=urllib.request.urlopen("http://10.79.0.1/",timeout=3); '
+                'assert r.status==200 and hashlib.sha256(r.read()).hexdigest()=='+repr(s['portal_files']['index.html']))
             inside('/usr/bin/python3','-c',probe)
             s['phase']='active';s['started_monotonic']=time.monotonic();save(s)
         notify()
@@ -430,9 +458,12 @@ def cleanup(*,rollback=False):
                 run(['/usr/bin/nmcli','connection','up','uuid',s['original_connection'],'ifname',adapter.name],timeout=35)
                 run(['/usr/bin/nmcli','device','set',adapter.name,'autoconnect','yes' if s['original_autoconnect'] else 'no'])
         if WEB.exists():
-            trusted(WEB,directory=True)
-            require({x.name for x in WEB.iterdir()}=={'index.html'},'Unexpected welcome files; cleanup stopped.')
-            (WEB/'index.html').unlink();WEB.rmdir()
+            if 'portal_files' in s:
+                portal().remove_runtime(WEB,s['portal_files'])
+            else:
+                trusted(WEB,directory=True)
+                require({x.name for x in WEB.iterdir()}=={'index.html'},'Unexpected welcome files; cleanup stopped.')
+                trusted(WEB/'index.html').unlink();WEB.rmdir()
         allowed={'state.json','hostapd.conf','nginx.conf','nginx.pid','dnsmasq.conf','control'}
         require(all(x.name in allowed for x in BASE.iterdir()),'Unexpected AP runtime files; cleanup stopped.')
         for x in BASE.iterdir():
@@ -457,8 +488,8 @@ def status():
     print('Control WLAN: ctrl0 is separate and protected')
     print('Lifetime: runtime only; always off after reboot')
     print('Web files: '+str(WEB)+' (generated runtime directory; present while AP is running)')
-    print('Template directory: '+str(TEMPLATE.parent))
-    print('Welcome template: '+str(TEMPLATE))
+    print('Template directory: '+str(TEMPLATES))
+    print('Welcome template: '+(s.get('template','legacy welcome.html') if s else 'not selected; choose with --template NAME'))
     if not s:return 0
     print('Interface: '+s['adapter'][0]);print('SSID: '+json.dumps(s['ssid'],ensure_ascii=True))
     print('Security: '+s['security']);print('Client isolation: enabled');print('Channel: '+str(CHANNEL))
@@ -485,12 +516,13 @@ def main(argv=None):
     p=argparse.ArgumentParser(prog='auto share ap',description=__doc__)
     p.add_argument('ssid',nargs='?',help='Start or rename the additional AP; a hidden password prompt follows (empty = open)')
     p.add_argument('--interface',metavar='IFACE',help='Choose an external USB adapter; otherwise ask when several exist')
+    p.add_argument('--template',metavar='NAME',help='Portal directory name; otherwise ask and list available templates')
     group=p.add_mutually_exclusive_group();group.add_argument('--off',action='store_true');group.add_argument('--status',action='store_true')
     a=p.parse_args(args)
     if a.ssid is not None and (a.off or a.status):p.error('SSID cannot be combined with --off or --status')
-    if a.interface and a.ssid is None:p.error('--interface requires an SSID')
+    if (a.interface or a.template is not None) and a.ssid is None:p.error('--interface/--template require an SSID')
     require(os.geteuid()==0,'Use sudo auto share ap; AP state and service inspection require root.')
-    if a.ssid is not None:validate_ssid(a.ssid);request(a.ssid,a.interface)
+    if a.ssid is not None:validate_ssid(a.ssid);request(a.ssid,a.interface,a.template)
     elif a.off:
         with locked():
             _,_,share=modules();previous=sharing_selection(share)

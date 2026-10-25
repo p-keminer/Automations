@@ -328,6 +328,68 @@ class HostShare:
         return dict(name=name, ifindex=row['ifindex'], device_path=str(device.relative_to(self.root)),
                     mac=address, wireless=(net / 'phy80211').exists(), address=local, network=str(subnet))
 
+    def selection_support(self):
+        source = Path(__file__).resolve().parents[2] / 'common/python/adapter_selection.py'
+        if Path(__file__).name == 'host_share.py' and Path(__file__).parent.name == 'python' and source.is_file():
+            spec = importlib.util.spec_from_file_location('_host_share_choices', source)
+            module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+            return module
+        module = self.extension('adapter_selection.py')
+        require(module is not None, 'The shared interface selector is unavailable.')
+        return module
+
+    def selection_candidates(self, mode=None, *, exclude=None):
+        candidates = {}
+        for path in sorted(self.path('/sys/class/net').iterdir()):
+            if path.name == exclude:
+                continue
+            try:
+                item = self.interface(path.name)
+                if mode is not None:
+                    require(item['wireless'] == (mode == 'wifi'), 'Different uplink type.')
+                    require(self.command([NMCLI, '--escape', 'no', '-g', 'GENERAL.STATE', 'device', 'show', path.name]).split(' ',1)[0] == '100',
+                            'The uplink is not connected.')
+                    if mode == 'wifi':
+                        require(re.search(r'^\s*type managed\s*$', self.command([IW, 'dev', path.name, 'info']), re.M), 'Not a client uplink.')
+                    self.default_gateway(path.name)
+                candidates[path.name] = item
+            except (Error, OSError, ValueError):
+                continue
+        return candidates
+
+    def select_uplink(self, mode, name=None, *, stdin=None, stdout=None):
+        if name is not None:
+            return name
+        candidates = self.selection_candidates(mode)
+        try:
+            chosen = self.selection_support().choose(
+                [(name, ('Wi-Fi' if item['wireless'] else 'LAN') + ', ' + item['address']) for name,item in candidates.items()],
+                'Non-interactive sharing requires --to IFACE.', stdin=stdin, stdout=stdout)
+        except ValueError as exc:
+            raise Error(str(exc)) from None
+        require(self.interface(chosen) == candidates[chosen], 'The selected uplink changed during selection.')
+        return chosen
+
+    def source_selection(self, uplink, answer=None, *, stdin=None, stdout=None):
+        candidates = self.selection_candidates(exclude=uplink)
+        # A portable host has no permanently provisioned control WLAN. Host-only
+        # remains an explicit choice whenever another usable client network exists.
+        if not candidates and answer is None:
+            return []
+        options = [('host', 'this Kali host only')]
+        options += [(name, 'client network ' + item['network']) for name,item in candidates.items()]
+        try:
+            names = self.selection_support().choose_many(options,
+                'Non-interactive sharing requires --from host or --from IFACE[,IFACE...].',
+                answer=answer, stdin=stdin, stdout=stdout)
+        except ValueError as exc:
+            raise Error(str(exc)) from None
+        require('host' not in names or names == ['host'], 'Choose host alone or the client networks; host traffic is always included.')
+        for name in names:
+            if name != 'host':
+                require(self.interface(name) == candidates[name], 'A selected client network changed during selection.')
+        return [] if names == ['host'] else names
+
     def validate_selection(self, value):
         require(type(value) is dict and set(value) == {'mode', 'uplink', 'clients', 'gateway', 'dns'}
                 and value['mode'] in ('lan', 'wifi') and type(value['clients']) is list
@@ -655,7 +717,7 @@ def print_status(value):
         print('Temporary until --off or reboot; no AP, DHCP or NetworkManager profile is created.')
     else: print('Host routing and IPv6 use normal system policy.')
 
-def main(argv=None, profile=None):
+def main(argv=None, profile=None, *, backend=None, stdin=None, stdout=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     if argv[:1] == ['ap']:
         try:
@@ -670,21 +732,27 @@ def main(argv=None, profile=None):
     actions = parser.add_mutually_exclusive_group()
     for action in ('status', 'off', 'lan', 'wifi'):
         actions.add_argument('--' + action, dest='action', action='store_const', const=action)
-    parser.add_argument('--to', dest='uplink', metavar='IFACE', help='Explicit already-connected uplink')
-    parser.add_argument('--from', dest='clients', metavar='IFACE[,IFACE]', help='Explicit client networks; omitted means host only')
+    uplinks=parser.add_mutually_exclusive_group()
+    uplinks.add_argument('--to', dest='uplink', metavar='IFACE', help='Connected Internet uplink; otherwise select interactively')
+    uplinks.add_argument('--interface', dest='uplink', metavar='IFACE', help=argparse.SUPPRESS)
+    parser.add_argument('--from', dest='clients', metavar='IFACE[,IFACE]', help='Client networks, or host for host-only; otherwise select interactively')
     args = parser.parse_args(argv)
     if (args.uplink or args.clients is not None) and args.action not in ('lan', 'wifi'):
         parser.error('--to/--from require --lan or --wifi')
-    if args.action in ('lan', 'wifi') and not args.uplink:
-        parser.error('--lan/--wifi require an explicit --to interface')
-    clients = args.clients.split(',') if args.clients is not None else []
-    if args.clients is not None and (not clients or any(not NAME.fullmatch(item) for item in clients)):
+    stdin = sys.stdin if stdin is None else stdin
+    if args.clients is not None and (not args.clients or any(not NAME.fullmatch(item.strip()) for item in args.clients.split(','))):
         parser.error('--from needs explicit comma-separated interface names')
+    if os.geteuid() != 0:
+        print('Use sudo auto share; reading the live firewall also requires root.', file=sys.stderr)
+        return 77
     try:
         if args.action in ('off', 'lan', 'wifi'):
             require(os.geteuid() == 0, 'Root privileges are required to change host sharing.')
-        backend = HostShare(profile if profile is not None else load_profile())
-        if args.action in ('lan', 'wifi'): value, _ = backend.enable(args.action, args.uplink, clients)
+        backend = backend or HostShare(profile if profile is not None else load_profile())
+        if args.action in ('lan', 'wifi'):
+            uplink = backend.select_uplink(args.action, args.uplink, stdin=stdin, stdout=stdout)
+            clients = backend.source_selection(uplink, args.clients, stdin=stdin, stdout=stdout)
+            value, _ = backend.enable(args.action, uplink, clients)
         elif args.action == 'off': value, _ = backend.disable()
         else: value = backend.status()
         print_status(value)
