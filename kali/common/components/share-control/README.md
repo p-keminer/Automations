@@ -1,6 +1,304 @@
+<a id="top"></a>
+
+<div align="center">
+
+[![Deutsch](https://img.shields.io/badge/🇩🇪_Deutsch-24292f?style=for-the-badge)](#deutsch)
+[![English](https://img.shields.io/badge/🇬🇧_English-24292f?style=for-the-badge)](#english)
+
+</div>
+
+<a id="deutsch"></a>
+
+# Internetfreigabe über einen ausgewählten Uplink
+
+Optionale Komponente `share-control` **0.2.0**, zusammen mit `auto-cli` installiert.
+Die Installation aktiviert keine Freigabe. Vorausgesetzt wird das abgenommene
+Pi4-v05-Netzwerklayout.
+
+Verschwindet das eigene Gast-AP-veth, kann Linux die erhaltene Eingangs-Policyregel
+als abgetrennt markieren. Die Bereinigung akzeptiert nur diese exakte reservierte
+Regel ohne lebendes Gast-veth und entfernt sie ohne Auflösung des fehlenden
+Gerätenamens. Die Live-Zustandsprüfung weist sie weiterhin ab; fremde, veränderte
+und doppelte Regeln bleiben Fehler.
+
+Die optionale Anonymitäts-Runtime kombiniert exakt eigene INPUT-/OUTPUT-Freigaben
+mit dieser Richtlinie. Solange Tor konfiguriert ist, werden manuelle Uplink-/
+Quellenwechsel abgewiesen; zuerst diesen Modus ausschalten. Automatische
+Aktualisierungen desselben ausgewählten Uplinks nutzen die koordinierte
+Aktualisierung ohne Tor-Neustart oder -Sperre. Ohne optionalen Helper bleiben die
+normalen Freigabevorgaben unverändert. `PRIVACY_API = 1` verhindert die Verwendung
+inkompatibler älterer Share-Pakete durch die neue Runtime.
+
+```sh
+sudo auto share --wifi [--to wlan0] [--from ctrl0,wlan1]
+sudo auto share --lan [--to eth0] [--from ctrl0,wlan1]
+sudo auto share --off
+sudo auto share --status
+auto share --help
+```
+
+`auto share` ohne Argument zeigt den Status. Bei mehreren geeigneten Uplinks listet
+ein TTY Namen, Verbindungszustand und WLAN-SSIDs zur Auswahl. Ohne TTY `--to` angeben.
+Es bezeichnet immer den Ausgang/Uplink, nicht das eingehende Netz. Das frühere
+`--interface` bleibt als Kompatibilitätsalias erhalten; beide Selektoren zusammen
+werden vor jeder Netzwerkoperation abgewiesen.
+Ohne `--from` wird stets gefragt, welche Clientnetze Internet erhalten sollen:
+`ctrl0` und bei laufendem Zusatz-AP dessen physischer Adaptername. Eine Nummer/
+einen Namen oder durch Kommas getrennte Auswahl eingeben. Es gibt keinen impliziten
+Standard; Strg+C bricht ab. Nichtinteraktive Aufrufe benötigen
+`--from NAME[,NAME...]`. Ein ausdrücklich genannter AP-Name muss aktuell den
+Zusatz-AP betreiben; normale Clientadapter sind Uplinks, keine Freigabequellen.
+Der Pi folgt immer dem ausgewählten Uplink. Ausgeschlossene Clientnetze können
+weder Weiterleitung, gemeinsames DNS noch Tor-Listener nutzen; lokale Steuerung
+und Willkommensseite bleiben erreichbar. Tor übernimmt die gewählten Quellnetze.
+WLAN muss ein externes USB-Funkgerät sein; ctrl0 und dessen interne Funkhardware
+sind ausgeschlossen. Die ausgewählte NetworkManager-Verbindung muss bereits
+nutzbare IPv4-Adressierung, Gateway und DNS haben. Reine IPv6-Uplinks werden
+abgewiesen; NAT64/DNS64 sind nicht implementiert. Dieser Befehl baut keine
+Uplinkverbindung auf und trennt sie auch nicht.
+
+Bei aktiver Freigabe verwenden **dieser Pi und die ausgewählten Clientnetze**
+ausschließlich den gewählten Uplink. IPv4, verfügbares natives IPv6 und UDP-/TCP-DNS
+folgen dieser Auswahl. Es gibt keinen Ausweichweg über andere Adapter, auch nach
+Entfernung des gewählten Adapters. Bestehende an andere Uplinks gebundene Sockets
+können ausfallen. Lokale Steuerung und Loopback bleiben erreichbar. `--off` entfernt
+die Freigabe und stellt das normale Pi-Routing wieder her.
+
+## DNS und IPv6
+
+NetworkManager-DNS-Arrays können getrennte Zeilen oder mehrere mit ` | ` verbundene
+Adressen enthalten. IPv4 und IPv6 werden vor Verwendung geparst und validiert;
+fehlerhafte Metadaten erzeugen einen begrenzten Fehler mit Kontext, ohne zu
+behaupten, die Freigabe sei ausgeschaltet. Link-Local-Gültigkeitsbereiche müssen
+zum ausgewählten Interface passen. Version 0.1.5 korrigiert dieses im Gast-WLAN
+entdeckte native Arrayformat; ältere gebaute Archive bleiben unverändert.
+Paketpfad und RA-/Dienstkonfiguration bleiben gegenüber 0.1.4 unverändert.
+
+Ein separater dnsmasq-Prozess auf Port 1053 mit fester Identität nobody/nogroup
+beantwortet lokale und Client-DNS-Anfragen und leitet ausschließlich an ausgewählte
+DNS-Server weiter. Er lädt weder resolv.conf noch die Hauptkonfiguration von dnsmasq.
+UDP- und TCP-DNS werden für Pi und Steuerclients umgeleitet; exakte Ausnahmen für
+Resolver-UID/Interface/Server verhindern rekursives Abfangen. IPv6-Link-Local-DNS
+erlaubt ebenfalls nur diese UID, das ausgewählte Interface, konfigurierte Ziel
+und den DNS-Port. Der lokale pi4-Eintrag bleibt erhalten. Verschlüsseltes DNS wird
+nicht abgefangen, folgt aber weiterhin dem ausgewählten Uplink und Ausgangsschutz.
+
+Die Serverliste liegt in einer Root gehörenden Laufzeitdatei, die Clients nicht
+beschreiben können. dnsmasq liest sie bei SIGHUP ohne Prozessneustart erneut ein.
+Unter Tor verwendet das Frontend den lokalen Tor-DNS-Endpunkt direkt: Physisch
+interfacegebundene DNS-Sockets können OUTPUT-DNAT-Loopback-Antworten nicht zuverlässig
+empfangen. Der private Filter verbietet weiterhin direkten Resolverausgang.
+Tor OFF lädt die ausgewählten, ausdrücklich gebundenen Uplinkserver erneut.
+Bei Tor-Nutzung benötigt dies anonymity-runtime 0.1.6.
+
+Eine temporäre, eng begrenzte INPUT-Freigabe erlaubt Upstream-RA/ND, erforderliche
+ICMPv6-Fehler, MLD-Abfragen und DHCPv6-Antworten sowie RS/ND auf der Steuerseite.
+Eine begrenzte Router-Solicitation lässt die bestehende NetworkManager-Verbindung
+IPv6 erkennen. Erforderlich sind eine globale Unicast-Adresse und nutzbare
+Standardroute. Prüfungs-/Einrichtungsfehler verhindern die Aktivierung; sie werden
+nicht als fehlende IPv6-Fähigkeit ausgegeben.
+
+Bei nutzbarem IPv6 werden eine stabil aus der Maschine abgeleitete ULA /64 und eine
+Link-Local-Adresse an ctrl0 ergänzt. dnsmasq kündigt diese ULA über RA/SLAAC mit
+RDNSS an; NAT66 übersetzt Clientverkehr auf den gewählten Uplink. Präfixdelegation
+ist nicht nötig. Der RA-Daemon lässt ctrl0 ausdrücklich über den Interfacenamen zu;
+dnsmasq nutzt listen-address-Einträge nicht für seine RA-Interfaceprüfung. Sein
+ergänzter DNS-Link-Local-Socket wird nur mit exaktem ctrl0-Gültigkeitsbereich
+akzeptiert. Upstream-Listener werden abgewiesen. Ohne nutzbares IPv6 nach
+abgeschlossener Erkennung sperren eine abschließende unreachable-Route und die
+Firewall den externen IPv6-Ausgang. Es gibt keinen Ausweichweg über andere Interfaces.
+
+## Zuständigkeit und Wiederherstellung
+
+* IPv4-/IPv6-Routingtabelle **17855** und Prioritäten **17853–17856** sind reserviert.
+  Regeln wählen ctrl0 und lokal erzeugten Verkehr (`iif lo`). Exakte Link-Local-,
+  Multicast- und DHCP-Broadcast-Regeln erhalten nötige Linkverwaltung. Jede Familie
+  hat eine abschließende unerreichbare Standardroute; unbekannte Policyregeln werden
+  abgewiesen. Hauptstandardrouten und NetworkManager-Profile werden nicht umgeschrieben.
+* Firewallobjekte sind auf `inet auto_share`, eine eigene Pi4-Forwarding-Kette samt
+  Sprung und exakte führende INPUT-Ausnahmen begrenzt. Das temporäre
+  `inet auto_share_gate` sperrt externen Ausgang und Weiterleitung während
+  Übergängen. Es dient ausdrücklichem Ein-/Ausschalten/Wechsel, niemals automatischer
+  Aktualisierung im laufenden Betrieb. Alle Pi4-Basisregeln einschließlich aktueller
+  SSH-Auswahl werden geprüft. Der endgültige INPUT-Vertrag umfasst zwei IPv4-DNS-
+  Regeln, sechs IPv6-Aufnahmeregeln und bei Aktivierung zwei ULA-DNS-Regeln.
+  `auto ssh` prüft diese exakten Formen.
+* Conntrack-Markierung **0x4155544f** kennzeichnet ausgewählten/umgeleiteten Verkehr.
+  Stoppen/Wechsel löscht nur diese Zuordnungen; fremde lokale/Steuerverbindungen
+  werden nicht geleert. Automatische Aktualisierung löscht sie nie. Bestehende
+  eigene Verbindungen bleiben auf dasselbe ausgewählte Interface begrenzt, auch
+  wenn eine noch gültige alte Adresse nicht mehr bevorzugt wird. Die
+  Tor-Transportausnahme behält UID-, TCP- und IPv4-Grenzen; sie erlaubt unter Tor
+  weder direkten Anwendungsverkehr noch IPv6.
+* IPv4-Forwarding je Interface und alle vorhandenen IPv6-Forwardingwerte werden
+  gespeichert. Globales IPv6-Forwarding wirkt unter Linux auf Interfaces; fremde
+  Interfacewerte werden deshalb sofort und beim Stoppen erneut wiederhergestellt.
+  Bei entfernten Adaptern muss kein nicht vorhandenes sysctl wiederhergestellt
+  werden; neue Adapter behalten bei der Bereinigung ihren beobachteten Wert.
+* IPv6-Adressen werden erst nach erfolgreicher Erzeugung als eigene erfasst.
+  Gleiche vorhandene Adressen werden abgewiesen, niemals übernommen oder entfernt.
+  Die Erkennung doppelter Adressen muss abgeschlossen sein. Vor dem Entfernen
+  sendet Stoppen eine RA mit Lebenszeit null; kann sie nicht gesendet werden,
+  wird Weiterleitung trotzdem abgeschaltet und eine Warnung ausgegeben. Clients
+  können eine unbrauchbare Adresse bis zum angekündigten Ablauf behalten.
+* Nur für Root zugängliche Sperre/Zustand und die Diensteinheit liegen unter `/run`.
+  Fehler und Strg+C versuchen Wiederherstellung; unvollständige Bereinigung erhält
+  Guard/Zustand für `--off`. Unbekannte Änderungen werden abgewiesen. Fehlgeschlagene
+  Wechsel versuchen die vorherige nutzbare Auswahl wiederherzustellen.
+  Nicht abfangbarer Prozessabbruch oder Stromausfall kann unvollständigen
+  Laufzeitzustand hinterlassen; der nächste Befehl meldet ihn statt Erfolg anzunehmen.
+
+Freigabe ist standardmäßig aus und endet beim Neustart. Dauerhafte DHCP-/AP-/NM-
+Konfiguration und Systemresolverdatei bleiben unverändert. Ein nur zur Laufzeit
+bestehender Timer prüft lokale Metadaten alle 30 Sekunden. Zwei übereinstimmende
+Beobachtungen bestätigen DNS-/Adress-/Gateway-/IPv6-Änderungen. Er wählt nie ein
+anderes Interface oder eine andere Quelle, führt keine fortlaufenden Internetproben
+aus und setzt kein Downloadzeitlimit. Ein fehlender Uplink wird gemeldet, ohne
+funktionierenden Zustand abzubauen oder einen anderen Weg zu öffnen.
+
+Eine Aktualisierungstransaktion prüft zuerst eigene Objekte, zeichnet ein privates
+Änderungsvorhaben auf, aktualisiert eigene Routen ohne Leeren der Tabelle und
+aktualisiert nft-Regeln atomar. Reine DNS-Fehler versuchen eine unterbrechungsfreie
+Wiederherstellung. Nach Prozessabbruch setzt der nächste serialisierte Aufruf
+das exakte alte/neue Änderungsvorhaben fort, auch nach Schreiben der Unit-Datei
+vor systemd daemon-reload. Fremde Objekte/Änderungen werden abgewiesen. Das
+Vorhaben erlaubt nie einen Wechsel von Uplink, Quellnetzen oder Datenschutz-UID/
+-Phase. IPv6-Fähigkeitswechsel dürfen nur den dedizierten DNS-/RA-Daemon neu
+starten; Steuer-WLAN, Tor und Datenverbindungen werden nicht neu gestartet.
+Eine vorhandene Steuer-ULA bleibt bis zu ausdrücklichem --off lokal zugeordnet.
+Echter Adress-/Linkverlust kann Verbindungen dennoch abbrechen. Internetverfügbarkeit
+und vollständige Pi-/Hardwareabnahme werden durch diese Softwareprüfungen nicht
+garantiert. CLI auf Englisch; deutsche und englische TXT-Hilfe werden separat paketiert.
+
+## Prüfung
+
+Die gezielten Regressionen in `test_share_watch.py` prüfen stabile Takte,
+normale/Tor-DNS-Änderungen, Quellen-/Adress-/Gateway-/Präfixänderungen, unterbrochene
+Schreibvorgänge und Befehle, Wiederherstellungsfehler/-fortsetzung, geladenen gegenüber
+geschriebenem Unit-Zustand, fremde Objekte, Timerlebenszyklus und alle
+Clientquellenkombinationen. Komponentenprüfung ausführen:
+
+```sh
+python3 -B kali/tools/components.py check --component share-control
+sudo unshare -n python3 kali/pi4/components/share-control/tests/native_watch_check.py
+```
+
+Die native Aktualisierungsprüfung benötigt dnsmasq, conntrack, iproute2, nftables
+und util-linux. `--tools PATH` darf auf entpackte dnsmasq-/conntrack-Pakete derselben
+Distribution zeigen; Hostpakete oder -dienste müssen nicht installiert werden.
+Sie verweigert den Host-Namespace und prüft echte DNS-Änderungen, bestehende
+Pi-/Client-TCP-Sockets, Wechsel bevorzugter IPv4-/IPv6-Quellen, IPv6-Erscheinen/-Verlust,
+eine aktive Alternativroute, Uplink down/up, erhaltenes Steuer-TCP und OFF-Bereinigung.
+Netzwerkerkennung und Dienstverwaltung sind explizite lokale Testadapter; der
+Tor-Pfad nutzt eine Relay-Fixture mit eigener UID, keinen echten Tor-Circuit.
+Client-ULA/-Routen sind statisch; damit sind SLAAC-Empfang, systemd-Sandboxing und
+Pi-/Telefonverhalten nicht belegt. Live-Auslösertests sowie 2 Stunden normaler
+Betrieb und 2 Stunden echtes Tor folgen getrennt. Frühere datierte Ergebnisse unten
+bleiben historische Nachweise, keine Abnahme von Version 0.1.9.
+
+Version 0.1.6 entfernt reservierte Routen vor dem Löschen ihrer bevorzugten
+IPv6-Quelladressen. Unterbrochene ältere Bereinigung erkennt ausschließlich die
+exakte eigene Steuerroute ohne ihre entfernte Quelle, nachdem deren Abwesenheit
+und leere Adresszuständigkeit bestätigt sind; normale Live-Prüfung bleibt streng.
+Eigene externe Routen können nach Adressverlust ihre bevorzugte Quelle verlieren,
+auch nachdem dieselbe Adresse wiederkehrt. Bereinigung/erneute Anwendung erlaubt
+nur diese exakte Auslassung; `linkdown` nur bei tatsächlich ausgefallenem oder
+fehlendem ausgewähltem Interface. Andere Routenfelder und Policyregeln bleiben
+exakt. Native isolierte veth-Fixtures prüfen Trägerverlust, Adressentfernung und
+Wiederverbindung. Die DNS-Startprüfung wiederholt begrenzt, während dnsmasq seine
+Rechte abgibt. Sie verlangt vor Weiterleitung die erwartete UID und alle
+dedizierten Sockets; ein Timeout führt weiterhin zur Wiederherstellung. Live-Status
+wertet eine falsche UID nie als gesund. Beobachtete Fehler und Wiederherstellung
+sind durch Fixtures abgedeckt. Nativer Produktivstart und Wiederherstellung
+bestanden am 19.10.2026 auf dem Pi mit echtem AWUS036ACM, systemd-DNS-Unit und
+Windows-Steuer-WLAN-Client: IPv4-/IPv6-HTTPS mit geprüftem TLS, DNS, RA/SLAAC/RDNSS,
+softwareseitige Uplinktrennung, Wiederverbindung/erneute Anwendung und OFF-
+Wiederherstellung. Steuergeräte-Sockets waren an WLAN-Interface/-Quelle gebunden,
+um das Laptop-LAN auszuschließen. Direktes SSH OFF/ON erhielt Guacamole und
+Desktop-/tmux-Prozesse auch bei aktiver Freigabe. Nachweise liegen im lokalen
+Builder-Verzeichnis `build/evidence`: `awus-common-egress-audit.json`,
+`awus-controller-ipv6-cycle-audit.json` und `component-ssh-disconnect-cycle-share.json`.
+Physisches USB-Abziehen, physisches LAN, iPhone-Freigabe und erster Boot eines
+neuen Komponentenimages bleiben getrennte Prüfungen.
+
+Das Paket 0.1.6 hat 67 bestandene Offline-Fixtures in drei Läufen und drei
+bytegleiche Bauten (SHA256
+`a750346d7e7bad6267a4999a31df4d8346cff2bb5ec29fd2a09ca537d01f017a`), einschließlich
+IPv6-Adresszuständigkeit/DAD, unterbrochenem globalem Forwarding, Bereinigung
+abgezogener Adapter, DNS-UID, abgeschlossener gegenüber fehlgeschlagener Erkennung
+und nativer ip-/nft-JSON-Normalisierung. Ein bytegenauer Manifest-Nutzdatei-Smoke-Test
+führt --help über den Kernel-Shebang aus und erkennt CRLF-Interpreterzeilen, die
+bei über Python gestarteten Tests unbemerkt blieben. Version 0.1.3 behebt diesen
+Paketierungsfehler; das gebaute Archiv 0.1.2 bleibt unverändert. Unabhängige Prüfung
+fand keinen weiteren konkreten Lebenszyklusblocker. Am 19.10.2026 bestanden in
+isolierten Pi-Netzwerk-/Mount-Namespaces IPv4-only- und Dual-Stack-Pakettests mit
+dnsmasq 2.93 und nftables 1.1.7: Pi-/Client-TCP-/UDP-Ausgang, echtes UDP-/TCP-DNS,
+IPv6-Link-Local-Resolverquellenauswahl, NAT66, Ausfall des gewählten Uplinks ohne
+Ausweichweg und exakte OFF-Wiederherstellung. Hostnetz und Produktivdienste blieben
+unverändert; das Leaseverzeichnis war schreibgeschützt. Clients nutzten statische
+ULA/Routen; der erste Datenpfadtest belegte deshalb keinen RA-Empfang. Ein
+gesonderter isolierter A/B-Test fand und bestätigte die fehlende ausdrückliche
+RA-Interfacebindung. Mit dieser Bindung erhielt der Client erwartetes RA-Präfix/
+RDNSS, lernte SLAAC-Adresse und RA-Standardroute und bestand IPv6-TCP sowie UDP-/
+TCP-DNS über den gewählten Link-Local-Resolver. Version 0.1.4 enthält diese
+Korrektur. Die endgültige unveränderte Runtime (SHA256
+`9de9d794c20f680cbb039f6ae5fe61b4ff4a0cfbf8119077fdc265473f997aa8`) bestand dieselben
+isolierten RA/SLAAC/RDNSS- und IPv6-/DNS-Paketprüfungen sowie ihren eigenen
+Socketvalidator gegen echte TCP-/UDP-Ausgabe und Prozess-UID. Genau zehn DNS-
+Listener waren auf Steuer- und Loopbackadressen begrenzt; Hostzustand blieb
+unverändert und Bereinigung schloss ab. Nachweis:
+`share-pi-ra-namespace-20261019T185321Z/dual.json` im lokalen Builder-Nachweisverzeichnis.
+systemd-Unit-Metadaten waren in dieser isolierten Prüfung simuliert; tatsächliche
+systemd-Härtung und reale Telefon-/Upstream-Abnahme bleiben getrennt. Ältere reine
+Steuergerätetests aus 0.1.1 zählen nicht als Beleg für diesen Vertrag.
+
+Die optionale IPv4-Policy-Regression wird so ausgeführt:
+
+```sh
+sudo unshare -n python3 kali/pi4/components/share-control/tests/namespace_check.py
+```
+
+Sie benötigt einen frischen, leeren isolierten Netzwerk-Namespace und verweigert
+den Host-Namespace. Sie prüft echte IPv4-Paketpfade, lokale/Client-UDP-DNS-Umleitung,
+IPv6-Sperre bei reiner IPv4-Auswahl, Abziehen ohne Ausweichweg und Wiederherstellung.
+Sie verwendet einen Echo-Socket statt eines echten DNS-Daemons und ist keine
+vollständige Dual-Stack-Abnahme. Sie nutzt lokale Fixtures, keine Internetendpunkte.
+Physische Pi-/Telefonabnahme ist getrennt; eine umfassende Hardwarefreigabe wird
+hier nicht behauptet.
+
+Primärquellen:
+
+* [dnsmasq-Handbuch](https://thekelleys.org.uk/dnsmasq/docs/dnsmasq-man.html):
+  Resolver-Interfacebindung, isolierte Konfiguration und RA-/SLAAC-/RDNSS-Optionen.
+* [Linux-6.12-IP-sysctls](https://docs.kernel.org/6.12/networking/ip-sysctl.html):
+  IPv6-Forwarding und Annahme von Router Advertisements.
+* [nftables-Handbuch](https://netfilter.org/projects/nftables/manpage.html): NAT,
+  IPv6-Masquerading und atomare Regelaktualisierungen.
+* [ip-rule-Handbuch](https://man7.org/linux/man-pages/man8/ip-rule.8.html): lokale
+  Eingangsinterfaceauswahl und abschließende unerreichbare Policyrouten.
+
+DNS-Lebenszykluskorrektur in 0.1.10: Linux-bind-dynamic mit ausdrücklicher Loopback-
+Tor-Resolverbindung verwenden. Ein echtes NEWADDR-Ereignis vor dem normalen
+Wechsel-zu-Tor-HUP zeigte in dnsmasq 2.93 einen veralteten physischen Interfaceindex;
+`@lo` allein oder ein alleiniger Wechsel des Bindungsmodus reichte nicht. Der
+kombinierte Modus aktualisiert diesen Index bei DNS-Metadatenänderungen ohne
+Resolverneustart. Die bisherige Steuer-/Loopback-Listenerauswahl und der
+Datenschutz-Guard bleiben erhalten. Native Backend-Fixtures ersetzen keine echte
+Tor-/iPhone-Abnahme.
+
+<div align="center">
+
+[![Nach oben](https://img.shields.io/badge/⬆_Nach_oben-24292f?style=for-the-badge)](#top)
+
+</div>
+
+---
+
+<a id="english"></a>
+
 # Selected-uplink Internet sharing
 
-Optional `share-control` **0.1.12**, installed with `auto-cli`. Installation does
+Optional `share-control` **0.2.0**, installed with `auto-cli`. Installation does
 not activate sharing. The accepted Pi4 v05 network layout is required.
 
 If the owned guest-AP veth disappears, Linux can mark its retained input policy
@@ -151,8 +449,8 @@ rollback failure/recovery, loaded-versus-written unit state, foreign objects,
 timer lifecycle and all client-source combinations. Run the component check:
 
 ```sh
-python3 -B tools/components.py check --component share-control
-sudo unshare -n python3 components/share-control/tests/native_watch_check.py
+python3 -B kali/tools/components.py check --component share-control
+sudo unshare -n python3 kali/pi4/components/share-control/tests/native_watch_check.py
 ```
 
 The native refresh check needs dnsmasq, conntrack, iproute2, nftables and util-linux.
@@ -221,7 +519,7 @@ remain separate. Do not count older 0.1.1 controller-only tests toward this cont
 The opt-in IPv4-policy regression can be run with:
 
 ```sh
-sudo unshare -n python3 components/share-control/tests/namespace_check.py
+sudo unshare -n python3 kali/pi4/components/share-control/tests/namespace_check.py
 ```
 
 It requires a fresh, empty isolated network namespace and refuses the host
@@ -245,7 +543,13 @@ Primary references:
 DNS lifecycle correction in 0.1.10: use Linux bind-dynamic with an explicit
 loopback Tor resolver binding. A real NEWADDR event before the normal-to-Tor
 HUP exposed a stale physical interface index in dnsmasq 2.93; merely specifying
-@lo or changing bind mode separately was insufficient. The combined mode
+`@lo` or changing bind mode separately was insufficient. The combined mode
 refreshes that index without a resolver restart on DNS metadata updates.
 The existing control/loopback listen selection and privacy guard are retained.
 Native backend fixtures do not replace real Tor/iPhone acceptance.
+
+<div align="center">
+
+[![Back to top](https://img.shields.io/badge/⬆_Back_to_top-24292f?style=for-the-badge)](#top)
+
+</div>

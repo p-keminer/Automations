@@ -1,3 +1,140 @@
+<a id="top"></a>
+
+<div align="center">
+
+[![Deutsch](https://img.shields.io/badge/🇩🇪_Deutsch-24292f?style=for-the-badge)](#deutsch)
+[![English](https://img.shields.io/badge/🇬🇧_English-24292f?style=for-the-badge)](#english)
+
+</div>
+
+<a id="deutsch"></a>
+
+# Sichtbarkeit des Steuer-WLANs
+
+Optionale Komponente für das abgenommene Netzwerklayout des Kali-Pi4-Builders.
+Zusammen mit `auto-cli` installieren; dieser Einstieg ruft `auto ap` auf und lädt
+die Vervollständigung. Auswahl oder Installation ändern weder die AP-Konfiguration
+noch starten sie einen Dienst neu.
+
+```text
+sudo auto ap --status
+sudo auto ap --invisible
+sudo auto ap --visible
+auto ap --help
+```
+
+Ohne Argument gilt `--status`. Die lesende Statusabfrage unterscheidet die
+konfigurierte Sichtbarkeit vom tatsächlichen AP-/Interfacezustand. Sie überprüft
+ausgesendete Beacons ausdrücklich nicht unabhängig. Die Hilfe benötigt weder Root
+noch Systemdateien; die Konfiguration des Standardimages ist nur für Root lesbar.
+Für Status und Änderungen deshalb `sudo` verwenden.
+
+## Änderung anwenden
+
+`--visible` und `--invisible` planen einen kurzen, unabhängigen systemd-Worker unter
+Root ein. Er speichert ausschließlich `ignore_broadcast_ssid` in
+`/etc/hostapd/hostapd.conf` und startet **nur hostapd** neu, damit die Einstellung
+sofort wirksam wird. Steuer-WLAN und Browser-/SSH-Verbindung werden kurz getrennt.
+Danach mit demselben Netz verbinden und `sudo auto ap --status` aufrufen.
+Guacamole-Dienste, Sitzungsprozesse, Passwörter, Client-ACLs und Netzwerkzuständigkeiten
+bleiben unverändert. Eine unterbrechungsfreie Verbindung oder feste Wiederanmeldezeit
+wird nicht zugesichert.
+
+Die Einstellung übersteht einen Neustart. Eine verborgene SSID unterdrückt die
+übliche Namensankündigung, bietet aber keinen zusätzlichen Zugriffsschutz. Neue
+Clients benötigen möglicherweise den manuell eingegebenen exakten Netzwerknamen.
+Auch beim bereits konfigurierten Wert wird hostapd bewusst neu gestartet: Ein
+gespeicherter Wert beweist nicht, dass die Firmware ihn angewendet hat.
+
+Der aufrufende Befehl meldet **scheduled**, nicht den Abschluss. Ein erfolgreicher
+Planungs-Exitcode beweist keine erfolgreiche Anwendung. `--status` zeigt das letzte
+Worker-Ergebnis: `queued`, `running`, `applied`, `recovered` oder `failed`.
+`applied` bedeutet, dass ein geprüfter neuer hostapd-Prozess auf ctrl0 mit erwarteter
+Adresse und Konfiguration ENABLED ist; es ist keine passive Funkmessung.
+`recovered` zeigt, ob die vorherige Konfiguration wiederhergestellt wurde oder der
+Worker nichts geändert hat. Eine fehlgeschlagene Wiederherstellung muss ein
+Administrator prüfen.
+
+## Gültigkeitsbereich und Wiederherstellung
+
+Unterstützt werden nur die bekannte Single-BSS-Konfiguration des Kali-Builders,
+die ctrl0-Namensregel und der Ausschluss aus NetworkManager. Geprüft werden der
+aktuelle Daemon-Aufruf und die geladene Definition für den nächsten Start: exakter
+Dienst samt Drop-in, Umgebungsdatei, effektiver Befehl und Umgebung, kein ausstehender
+Daemon-Reload und keine unbekannten Exec-Hooks. Unbekannte, unsichere oder extern
+veränderte Konfigurationen werden abgewiesen.
+
+Der Worker ist der feste transiente Dienst `automations-ap-apply.service` und nutzt
+das vertrauenswürdige installierte AP-Programm über isoliertes Python. Ein privater,
+Root gehörender Datensatz unter `/run/automations-ap` und die bestehende AP-Sperre
+koordinieren Aufrufe. Beliebige Jobbefehle, Pfade, Umgebungen oder ein überschriebenes
+Test-Stammverzeichnis im Produktivbetrieb werden nicht akzeptiert. Parallele
+Operationen werden abgewiesen; ein Verbindungsabbruch des Aufrufers beendet den
+Worker nicht. Befehle und Bereitschaftsabfragen haben begrenzte Laufzeiten.
+
+Schreibvorgänge verwenden eine temporäre Datei im selben Verzeichnis, erhalten
+Eigentümer und Modus und nutzen fsync sowie atomares Umbenennen. Inhalt und Metadaten
+werden unmittelbar vor dem Ersetzen erneut geprüft. Abgebrochen werden darf nur ein
+exakt zugeordneter eigener systemd-Neustartjob. Der Jobmodus `fail` weist kollidierende
+Jobs ab, statt sie zu ersetzen. Bei Fehlern klärt der Worker den Jobzustand, ersetzt
+nur seine eigene unverändert gebliebene Ersatzdatei durch das Original und versucht,
+die vorherige unterstützte Konfiguration neu zu starten. Externe Änderungen werden
+weder überschrieben noch bewusst neu gestartet. ExecStopPost behandelt unvollständige
+Worker-Wiederherstellungen; abgeschlossene Datensätze lösen keinen weiteren Neustart
+aus. Zugangsdaten- und ACL-Dateien werden nicht gelesen.
+
+Stromausfall oder erzwungenes Beenden der Wiederherstellung sind nicht vollständig
+transaktional abgesichert. Wird der Aufrufer zwischen Aufzeichnung und Einplanung
+des Workers beendet, kann ein blockierter queued-Datensatz zurückbleiben, ohne
+hostapd zu ändern. Solche offenen Operationen müssen geprüft werden. Während einer
+aktiven Operation weder den privaten Datensatz löschen noch hostapd parallel
+bearbeiten. Der normale Status darf Wiederherstellung oder Funkerfolg nur mit den
+jeweils erforderlichen Nachweisen melden.
+
+Exitcodes: `0` für Beobachtung oder erfolgreiche Einplanung, `1` für eine unsichere/
+nicht verfügbare Plattform oder einen Operationsfehler, `64` für ungültige Argumente,
+`77` für Änderungen ohne Root und `130` bei Unterbrechung des Aufrufers. Status kann
+einen fehlenden/deaktivierten AP melden; Änderungsbefehle erzeugen oder starten ihn nicht.
+
+## Prüfung
+
+`python3 kali/tools/components.py check --component ap-control` ausführen. Die Tests
+nutzen temporäre Fixtures und simulierte Befehlsausführung. Sie prüfen öffentliche
+Optionen, native Definitionsabfragen von systemd 262, Schutz des nächsten Starts,
+tatsächlichen gegenüber gespeichertem Zustand, Vertrauen in den festen Worker,
+Jobkonflikte, doppelte Anfragen, Firmwareabweichungen trotz gleicher Konfiguration,
+Bereitschaft mit neuer PID, CAS-Schreibvorgänge, Unterbrechung und Wiederherstellung,
+externe Änderungen, Berechtigungen und das Unterdrücken von Geheimnissen.
+Es werden keine Pi- oder Netzwerkbefehle ausgeführt.
+
+Die frühere SET/UPDATE_BEACON-Implementierung meldete Erfolg und erhielt die
+AP-Verbindung. Eine unabhängige Aufnahme der eigenen BSSID am 19.10.2026 zeigte nach
+der Anforderung des verborgenen Modus jedoch weiterhin den Namen `Pi4`. Die festgelegte
+brcmfmac-Implementierung aktualisiert `closednet` in der Firmware beim AP-Start;
+change-beacon aktualisiert lediglich zusätzliche Management-IEs. Die früheren
+Prüfungen belegten deshalb keine verborgenen Beacons. Version 0.1.2 ersetzt diesen
+Weg durch den zeitlich begrenzten Neustart-Worker.
+
+Der neue Worker bestand Offline-Prüfung und Fixtures. Sichtbar/verborgen/sichtbar
+muss weiterhin anhand echter Beacons abgenommen werden, ebenso Wiederverbindung und
+Fortbestand von Guacamole/Sitzungen. Hier wird kein neuer Hardwareerfolg behauptet.
+
+Primärquellen:
+
+- [Raspberry-Pi-brcmfmac: AP-Start und change-beacon](https://raw.githubusercontent.com/raspberrypi/linux/rpi-6.12.y/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c).
+- [Lebenszyklus transienter systemd-Dienste](https://www.freedesktop.org/software/systemd/man/latest/systemd-run.html).
+- [systemd-D-Bus-Eigenschaften für Jobs und Dienste](https://www.freedesktop.org/software/systemd/man/latest/org.freedesktop.systemd1.html).
+
+<div align="center">
+
+[![Nach oben](https://img.shields.io/badge/⬆_Nach_oben-24292f?style=for-the-badge)](#top)
+
+</div>
+
+---
+
+<a id="english"></a>
+
 # Control WLAN visibility
 
 Optional component for the accepted Kali Pi4 builder network layout. Install
@@ -78,7 +215,7 @@ commands do not create or start it.
 
 ## Verification
 
-Run `python3 tools/components.py check --component ap-control`. Tests use temporary
+Run `python3 kali/tools/components.py check --component ap-control`. Tests use temporary
 fixtures and a simulated command runner. They cover public options, native
 systemd 262 definition observations, future-start guards, actual versus saved
 state, fixed worker trust, job races, duplicate requests, equal-config firmware
@@ -101,3 +238,9 @@ Primary references:
 - [Raspberry Pi brcmfmac AP start/change-beacon implementation](https://raw.githubusercontent.com/raspberrypi/linux/rpi-6.12.y/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c).
 - [systemd transient service lifecycle](https://www.freedesktop.org/software/systemd/man/latest/systemd-run.html).
 - [systemd D-Bus job and service properties](https://www.freedesktop.org/software/systemd/man/latest/org.freedesktop.systemd1.html).
+
+<div align="center">
+
+[![Back to top](https://img.shields.io/badge/⬆_Back_to_top-24292f?style=for-the-badge)](#top)
+
+</div>

@@ -1,3 +1,239 @@
+<a id="top"></a>
+
+<div align="center">
+
+[![Deutsch](https://img.shields.io/badge/🇩🇪_Deutsch-24292f?style=for-the-badge)](#deutsch)
+[![English](https://img.shields.io/badge/🇬🇧_English-24292f?style=for-the-badge)](#english)
+
+</div>
+
+<a id="deutsch"></a>
+
+# Tor steuern
+
+Optionales Modul `auto tor` für das verwaltete Pi4-Image. `anonymity-runtime` und
+dessen Abhängigkeiten ebenfalls auswählen. Die Installation aktiviert Tor nicht
+und ändert kein Routing. Der Imagebuilder maskiert die Tor-Diensteinheiten der
+Distribution; nur der separate Dienst `automations-tor.service` wird bei
+ausdrücklichem `--on` verwendet.
+
+## Befehle
+
+- `sudo auto tor --on`: benötigt einen gesunden, ausdrücklich mit `auto share`
+  ausgewählten Uplink. Die gemeinsame Runtime sperrt direkte Ausweichwege, bevor
+  der dedizierte Tor-Client startet. Eine TLS-Anfrage über dessen lokalen
+  SOCKS-Endpunkt muss vor Abschluss der Aktivierung `IsTor: true` melden.
+- `sudo auto tor --off`: stoppt Tor, bevor der bestehende Share-Pfad wiederhergestellt wird.
+- `sudo auto tor --status` und Aufruf ohne Argument: zeigen den Routingzustand und
+  fragen die öffentliche IP frisch über den aktuell erzwungenen Pfad ab. Keine Routenänderung.
+- `sudo auto tor --rotate`: fordert neue Tor-Circuits für neue Verbindungen an,
+  wartet auf das Aktionsereignis und meldet die aktuell beobachtete öffentliche IP.
+- `sudo auto tor --rotate-every 10m`: plant Rotation in Intervallen von `30s` bis
+  `24h` mit ganzzahligen `s`, `m` oder `h`. Auch zusammen mit `--on` unterstützt.
+- `sudo auto tor --rotation-off`: beendet den Zeitplan, lässt Tor aber aktiv.
+- `sudo auto tor --check`: lädt die Exit-Liste frisch, validiert und ersetzt sie
+  atomar, misst die aktuelle öffentliche IP und meldet `VERIFIED` oder `NOT LISTED`.
+- `sudo auto tor --check --ip 1.1.1.1`: frische Liste, explizite öffentliche IP,
+  keine Abfrage der eigenen IP. Eine IPv6-Adresse führt nach der Aktualisierung
+  zu einem ausdrücklichen Fehler wegen fehlender Abdeckung.
+- `sudo auto tor --check --status`: normaler Status und aktuelle IP sowie Pfad/
+  Metadaten der gespeicherten Liste. Kein Download und keine Zugehörigkeitsprüfung.
+- `auto tor --help`: englische Hilfe ohne privilegierten Zugriff oder Netzwerkzugriff.
+
+## Transportgrenzen
+
+Tor- und Proxy-Modus schließen sich gegenseitig aus. Wechsel oder Ausschalten von
+Share werden abgewiesen, bis der Datenschutzmodus ausdrücklich deaktiviert wurde.
+Die Aktivierung gilt bis zum Neustart; es gibt keinen Autostart. Geplante Rotation
+ist standardmäßig aus. Fehlgeschlagener Start oder Verlust des Tor-Dienstes lassen
+betroffenen Verkehr ohne direkten Ausweichweg gesperrt. Lokaler Steuer-AP,
+Guacamole sowie Share-DNS und lokaler Name `pi4` bleiben erhalten.
+
+`--on` startet auch den optionalen Wiederherstellungstimer. Ein ausgefallener
+Tor-Daemon startet hinter einer geschlossenen Sperre für Anwendungsverkehr neu.
+Nur das Tor-Konto darf Relays kontaktieren; eine feste SOCKS-/HTTPS-Prüfung nur für
+Root muss Tor bestätigen, bevor normaler Pi- und Steuergeräteverkehr wieder
+zugelassen wird. Fehlgeschlagene Prüfungen werden nach zehn Sekunden wiederholt.
+Bereitschaft ist unter der Share-Sperre an denselben systemd-Aufruf und Guard
+gebunden; eine alte Prüfung kann weder `--off` aufheben noch einen neueren
+ungeprüften Daemon freigeben. `--off` beendet den Timer und stellt den vorherigen
+Share-Pfad ausdrücklich wieder her. Keine Wiederherstellungs-Unit wird beim Boot
+aktiviert. Ein fehlender oder geänderter Uplink wird nie still ersetzt; eine
+ungeprüfte Firewall wird gemeldet statt überschrieben. Externe Anwendungen müssen
+sich nach einem Daemonfehler möglicherweise neu verbinden.
+
+Das getrennte Konto `auto-tor` betreibt einen IPv4-Tor-Client. Transparentes IPv4-TCP
+verwendet Port 19040 auf Loopback und der festen Steueradresse; lokale SOCKS-Prüfungen
+nutzen 127.0.0.1:19050. Tor-DNS verwendet UDP-Port 19053 auf IPv4-/IPv6-Loopback über
+den bestehenden Share-Resolver. Tors DNSPort unterstützt nur A/AAAA/PTR. Ausgehendes
+DNS-TCP, sonstiges UDP, ICMP und externes Anwendungs-IPv6 sind gesperrt. Anwendungen,
+die diese Protokolle benötigen, können scheitern; dies ist kein VPN für alle
+Protokolle. Diese Grenzen sind beabsichtigt und dürfen nicht als erfolgreicher
+Transport beschrieben werden.
+
+Die gemeinsame Runtime verwaltet Firewall, Routing, Sperre und Zustand. Dieses
+Modul verwaltet nur sein festes Tor-Konto, das vom Paket gelieferte Programm,
+festen Dienst/Konfiguration und Exit-Prüfung. Unit-/Konfigurationsänderungen
+außerhalb der unterstützten Definition werden abgewiesen.
+
+## Rotation
+
+Rotation sendet `SIGNAL NEWNYM` über den Unix-Socket des lokalen
+Steuerverzeichnisses mit Modus 0700 und SAFECOOKIE-Authentifizierung einschließlich
+Server-HMAC-Prüfung. Tor wird weder neu gestartet noch werden Firewall/Routing
+verändert. Die gemeinsame Rotationssperre erzwingt mindestens zehn Sekunden
+zwischen bestätigten Aktionen; Tor kann Anfragen unabhängig davon verzögern oder
+ignorieren. Die Befehlsbestätigung `250 OK` allein reicht nicht: Das Aktionsereignis
+`650 SIGNAL NEWNYM` muss innerhalb der begrenzten Wartezeit eintreffen. Ein lokaler
+Ratenbegrenzungsfehler lässt die bestehende Route unverändert.
+
+Scheitert nach bestätigter Rotation nur die Beobachtung der öffentlichen IP,
+meldet der Befehl den Fehler, ohne eine ansonsten verifizierte aktive Route zu
+sperren. Die Operationssperre bleibt während der Beobachtung gehalten; Guard,
+Uplink und unveränderter Tor-Dienstaufruf werden vor dem Erhalt erneut geprüft.
+Eine Antwort ohne Tor-Nutzung oder eine tatsächliche Zustandsänderung führt
+weiterhin zur Sperre. Dieselbe Regel gilt für wiederholtes `--on` bei bereits
+gesundem aktivem Modus.
+
+NEWNYM trennt neue Streams von alten Circuits und leert Tors DNS-Cache. Bestehende
+TCP-Verbindungen werden nicht beendet. Eine andere Exit-IP ist **nicht garantiert**.
+Eine manuelle Anfrage zeigt die gemessene IP auch dann, wenn sie unverändert ist.
+Geplante Anfragen laufen still unter `auto-tor` und protokollieren nur Fehler im
+festen transienten Dienst `automations-tor-rotation.service`. Dieser Worker ist
+an den Wiederherstellungstimer gebunden, übersteht die Tor-Daemon-Wiederherstellung,
+wartet vor der ersten Anfrage ein Intervall und wird durch `--rotation-off` und
+`--off` gestoppt. Er hat nur AF_UNIX-Zugriff, keine Netzwerksockets. Kein Zeitplan
+wird beim Boot automatisch aktiviert; wiederholtes `--on` erhält einen bestehenden
+gesunden Zeitplan, sofern kein neues Intervall ausdrücklich angegeben wird.
+
+## Vorgaben für die frische Exit-Liste
+
+Feste Endpunkte, normale System-CA-Prüfung, keine Weiterleitungen,
+keine Proxy-Umgebungsvariablen und keine benutzerdefinierten URLs:
+
+- `https://check.torproject.org/exit-addresses` (TorDNSEL-Format mit Zeitstempeln).
+- `https://check.torproject.org/api/ip` (beobachtete IP und `IsTor`-Flag der Anfrage).
+
+Jede echte Prüfung lädt erneut; bei Fehlern gibt es keinen Rückgriff auf einen
+Listencache. Downloadfehler enthalten den geprüften Transportfehler, etwa
+Gesamtzeitlimit oder TLS-Prüffehler, ohne beliebige Ausnahmedaten offenzulegen.
+Die einzige dauerhafte Liste ist `/var/lib/automations/tor-exits.json`: ein
+normalisierter Datensatz mit Quell-URL, Quell-/Downloadzeiten, Rohdaten-SHA256 und
+deduplizierten Adressen. Eine temporäre Datei wird per fsync gesichert und erst
+nach Validierung atomar ersetzt; temporäre Dateien werden bei Fehlern entfernt.
+Ein Download-/Parsefehler erhält die vorherige Datei zur Statusprüfung, verwendet
+sie aber nie für die Zugehörigkeitsprüfung. Es entstehen keine datierten Archive
+oder zusätzlichen Listenversionen.
+
+Lokale Validierungsgrenzen sind 4 MiB, 25.000 Relay-Datensätze und 128 Adressen je
+Relay. Fehlerhafte, leere oder unbekannte Datensätze, nicht öffentliche IPs und
+Zeitstempel mehr als fünf Minuten in der Zukunft führen zu Fehlern. Der neueste
+`LastStatus` darf höchstens sechs Stunden alt sein; behalten werden nur Adressen,
+die innerhalb von 24 Stunden an einem Relay mit Status innerhalb von 24 Stunden
+beobachtet wurden. Das sind ausdrückliche lokale Annahmegrenzen, keine
+Vollständigkeitsgarantien von Tor. Bei doppelten IPs bleibt die jüngste Beobachtung.
+
+Die Quelle gilt ausschließlich als **beobachtete IPv4-Exits**, nicht als
+vollständige IPv6-Exit-Liste. Fehlende IPv6-Abdeckung ist ein Fehler, niemals
+`NOT LISTED`. `VERIFIED` belegt nur die Zugehörigkeit zu dieser frisch beobachteten
+Menge. `NOT LISTED` beweist nicht, dass Tor ungenutzt war. Keines der Ergebnisse
+beweist den Weg jedes Programms/Clients. Normaler Status misst den aktuellen Pfad
+auch bei ausgeschaltetem Tor ausdrücklich über IPv4, passend zum implementierten
+Transport und zur Listenabdeckung. Scheitert diese Anfrage, gibt es keinen
+SOCKS- oder direkten Ausweichversuch. Die SOCKS-Prüfung beim anfänglichen Bootstrap
+ist backendbezogen und wird gesondert gekennzeichnet.
+
+## Prüfung
+
+Komponententests nutzen ausschließlich lokale Fixtures und Simulationen:
+Quellalter/Adressfamilie/Format, wiederholten Download, keinen veralteten Rückgriff,
+Ersetzungsfehler, CLI-Trennung, feste Tor-Konfiguration, Wiederherstellungsfehler
+und paralleles OFF/neue Aktivierung. Echte Pi-Abnahme wird getrennt im
+Builder-Testplan festgehalten.
+
+Primärquellen:
+
+- [TorDNSEL-Format und Bedeutung der Beobachtung](https://metrics.torproject.org/collector.html#type-tordnsel)
+- [Tor-Client-/DNSPort-/TransPort-Optionen](https://manpages.debian.org/trixie/tor/tor.1.en.html)
+- [Check-/API-Beispiel des Tor-Projekts](https://archive.torproject.org/websites/lists.torproject.org/pipermail/tor-dev/2017-November/012609.html)
+- [Tor-Protokollgrenzen](https://spec.torproject.org/socks-extensions.html)
+- [NEWNYM- und SAFECOOKIE-Steuerbefehle](https://spec.torproject.org/control-spec/commands.html)
+- [Semantik von Aktionsereignissen und Ratenbegrenzung](https://spec.torproject.org/control-spec/replies.html#signal-received)
+- [Warum ein neuer Circuit nicht zwingend die IP ändert](https://stem.torproject.org/faq.html)
+
+Version 0.1.1 meldet bekannte Fehler der validierten gemeinsamen Runtime direkt,
+einschließlich des erforderlichen gesunden Share-Uplinks. Unerwartete
+Ausnahmedetails bleiben verborgen; Routing, Aktivierung und Rotation sind unverändert.
+
+Version 0.1.2 liest HTTPS-Antwortkörper nach HTTP/1.0- oder `Connection: close`-
+Antworten, ohne auf den geschlossenen Verbindungssocket zuzugreifen. Der
+Anfrage-Worker unter derselben UID erzwingt weiterhin Gesamtzeitlimit, Größenlimit
+und geprüftes TLS. Eine echte lokale HTTPS-Regression prüft den aktuellen Pfad
+und den bereitgestellten SOCKS-Transport.
+
+Version 0.1.3 wiederholt die beiden festen HTTPS-GETs bei Transport-Reset, EOF oder
+Timeout höchstens dreimal, jeweils mit neuer Verbindung innerhalb des ursprünglichen
+Gesamtzeitlimits. Zertifikats-, HTTP-Status- und Antwortvalidierungsfehler werden
+nie wiederholt.
+
+Version 0.1.9 wiederholt zusätzlich vorübergehende DNS-Auflösungsfehler und durch
+Transportabbruch gekürzte Antwortkörper innerhalb desselben ursprünglichen
+20-Sekunden-Gesamtlimits. Kein Timeout wurde erhöht; ein hängender Versuch kann
+weiterhin das ganze Budget verbrauchen. Zeitlimitfehler nennen die aktuelle feste
+Phase: DNS, TCP, SOCKS, TLS, Anfrageschreiben, Antwortkopf oder -körper. Der Worker
+teilt nur eine Phasennummer, keine Namen, URLs, Zugangsdaten oder Antwortinhalte.
+Geprüftes TLS, feste Endpunkte, Antwortgrenzen und Messung des aktuellen Pfads
+bleiben unverändert. Diese Diagnose-/Wiederholungsverbesserung belegt nicht die
+Ursache aller öffentlichen Tor-Streamfehler. Benötigt anonymity-runtime 0.1.5,
+damit geprüfte Share-Sperrfehler über die unterstützte Runtime-Fehlergrenze statt
+als generische Ausnahme gemeldet werden.
+
+Version 0.1.11 erhöht auf Benutzerwunsch das standardmäßige HTTPS-Prüfzeitlimit
+von 20 auf 40 Sekunden. Es gilt für jede normale Exit-Listen- oder öffentliche
+IP-Prüfanfrage einschließlich ihrer Transportversuche und vollständigen Antwort.
+Getrennte Start-/Wiederherstellungsprüfungen behalten ihre ausdrücklichen
+10-Sekunden-Budgets. Diese Prüflimits begrenzen weder normale Browserdownloads
+noch Videowiedergabe über Tor. Der abgeschlossene v07-Dauerlauf nutzte 0.1.10;
+diese spätere Änderung ist kein neues Dauerlaufergebnis.
+
+Version 0.1.10 verwendet gewöhnliche Tor-Circuits mit `ConfluxEnabled 0`. Das
+deaktiviert optionale Circuit-Bündelung, nicht Tor-Routing oder TLS-Prüfung. Auf
+dem Test-Pi vermieden frische Starts damit die langen Stillstände transparenter
+Streams, die mit dem Standard `auto` auftraten. Das ist ein begrenzter
+Live-Vergleich, kein Beweis für einen allgemeinen Conflux-Fehler oder eine Garantie
+für jeden Exit. Das ursprüngliche HTTPS-Gesamtlimit und Routing mit Sperre im
+Fehlerfall bleiben unverändert. Der Imagebuilder bindet das geprüfte ARM64-Paket
+des Tor-Projekts und dessen Archivsignierschlüssel separat fest ein; das
+Komponentenarchiv selbst ergänzt kein APT-Repository auf dem laufenden Pi.
+
+Version 0.1.5 benötigt anonymity-runtime 0.1.3 und ergänzt geschützte automatische
+Wiederherstellung. Tors Laufzeitverzeichnis übersteht einen Daemon-Neustart, sodass
+der isolierte Rotations-Worker den aktuellen SAFECOOKIE-Socket weiterhin sieht.
+
+Version 0.1.6 gibt der Wiederherstellungs-Sandbox CAP_SYS_PTRACE ausschließlich
+für die bestehende `ss`-Eigentümerprüfung der Sockets des gemeinsamen DNS-Prozesses.
+Die übrigen Sandboxgrenzen bleiben bestehen. Drei echte Daemon-Abstürze wurden auf
+dem Test-Pi nach etwa 17, 25 und 26 Sekunden automatisch behoben, einschließlich
+Wiederholungen nach fehlgeschlagenen Bereitschaftsprüfungen. Pi- und physische
+Steuer-WLAN-Pfade waren währenddessen gesperrt und meldeten danach Tor; lokale
+Sitzungen und der Rotations-Worker blieben erhalten. Dies ist eine begrenzte
+Live-Abnahme, keine Zusicherung einer Wiederherstellungszeit oder ununterbrochener
+externer TCP-Verbindungen.
+
+Version 0.1.12 verschiebt einen internen Wiederherstellungstakt bei typisiertem
+Sperrkonflikt der Runtime vor Operationsbeginn. Öffentliche Befehle und tatsächliche
+Operations-/Prüffehler melden weiterhin Fehler; Zeitlimits und Verkehrsregeln bleiben gleich.
+
+<div align="center">
+
+[![Nach oben](https://img.shields.io/badge/⬆_Nach_oben-24292f?style=for-the-badge)](#top)
+
+</div>
+
+---
+
+<a id="english"></a>
+
 # Tor control
 
 Optional `auto tor` module for the managed Pi4 image. Select `anonymity-runtime`
@@ -192,3 +428,9 @@ scheduled-rotation worker survived. This is a bounded live acceptance result,
 not a promise of recovery time or uninterrupted external TCP connections.
 
 Version 0.1.12 defers an internal recovery tick on the runtime's typed pre-operation lock contention. Public commands and actual operation/probe failures still report errors; no timeout or traffic policy changes.
+
+<div align="center">
+
+[![Back to top](https://img.shields.io/badge/⬆_Back_to_top-24292f?style=for-the-badge)](#top)
+
+</div>

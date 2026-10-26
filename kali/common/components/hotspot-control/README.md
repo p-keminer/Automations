@@ -1,3 +1,103 @@
+<a id="top"></a>
+
+<div align="center">
+
+[![Deutsch](https://img.shields.io/badge/🇩🇪_Deutsch-24292f?style=for-the-badge)](#deutsch)
+[![English](https://img.shields.io/badge/🇬🇧_English-24292f?style=for-the-badge)](#english)
+
+</div>
+
+<a id="deutsch"></a>
+
+# Zusätzlicher USB-AP mit Willkommensseite
+
+`sudo auto share ap "SSID" [--interface IFACE] [--template NAME]` startet einen
+optionalen, nur zur Laufzeit bestehenden AP auf einem der externen USB-Adapter
+oder benennt ihn um. Beide Adapter bleiben austauschbar; keiner ist für den AP
+reserviert. Der interne AP `ctrl0` bleibt unverändert. `auto ap` steuert weiterhin
+nur Sichtbarkeit und Status dieses Steuer-WLANs.
+
+Bei mehreren Kandidaten fragt ein echtes Terminal nach Interfacenummer oder -name.
+Automatisierte Aufrufe müssen `--interface` angeben. Eine getrennte verdeckte
+Passwortabfrage akzeptiert eine leere Eingabe für einen offenen AP oder 8–63
+druckbare ASCII-Zeichen für WPA2. Es gibt keine willkürlichen Komplexitätsregeln.
+SSIDs dürfen 1–32 UTF-8-Bytes lang sein. Clientprofile und ihre Autoconnect-Flags je
+SSID bleiben erhalten. Während des AP-Betriebs verlässt der ausgewählte Adapter
+sein bisheriges Clientnetz. Beim Stoppen kehrt er in den getrennten Managed-Modus
+zurück. Es entsteht weder ein AP-Profil noch ein für den Boot aktivierter Dienst.
+Der AP-Worker prüft während des Betriebs die gespeicherte PHY- und Namespace-
+Interfaceidentität. Verschwindet der Adapter, wird der AP gestoppt und bereinigt,
+auch wenn hostapd noch ENABLED meldet. Erneutes Einstecken startet den AP nicht
+automatisch; er muss ausdrücklich neu gestartet werden. Ein anderes Interface mit
+demselben Namen wird nicht verändert.
+
+Befehle:
+
+```sh
+sudo auto share ap "Welcome" --interface wlan1 --template welcome
+sudo auto share ap --status
+sudo auto share ap "New name" --interface wlan1
+sudo auto share ap --off
+sudo auto share ap --help
+sudo auto share --wifi --to wlan0 --from wlan1
+sudo auto share --wifi --to wlan0 --from ctrl0,wlan1
+sudo auto share --off
+```
+
+Der AP verwendet einen eigenen Netzwerk-Namespace, hostapd, DNS/DHCP und einen
+statischen Webserver. AP-Clients erreichen nur HTTP/HTTPS und die erforderlichen
+DHCP-/DNS-Dienste. Es gibt weder SSH, Guacamole, einen Verwaltungsendpunkt noch
+einen Weg zum Steuer-WLAN oder zu privaten Upstream-Netzen. Client-Isolation ist
+aktiviert. IPv6 ist auf diesem zusätzlichen AP deaktiviert; das Steuer-WLAN behält
+sein normales IPv6-Verhalten.
+
+Internetzugriff bleibt aus, bis `auto share --wifi/--lan` aktiviert wird. `--to`
+wählt den Ausgang; `--from` wählt die Clientnetze mit Internetzugang, durch Kommas
+getrennt. Ohne `--from` erscheint eine nummerierte Auswahl mit Interfacenamen und
+SSIDs. Der Pi und die gewählten Clientnetze nutzen diesen Uplink ohne Ausweichweg.
+Share OFF entfernt die Weiterleitung, lässt die lokale Willkommensseite aber
+erreichbar. Tor übernimmt den gewählten Uplink und wendet seine üblichen TCP-/DNS-
+Grenzen auch auf AP-Clients an. Vor Änderungen an AP-Topologie oder Uplink Tor ausschalten.
+
+Portalvorlagen liegen unter `/usr/local/share/automations/hotspot/templates/NAME/`.
+Jede enthält `index.html` und optional lokale CSS-, JavaScript-, Bild- und
+Schriftdateien. `--template NAME` wählt den Verzeichnisnamen. Ohne diese Angabe
+listet ein Terminal die verfügbaren Vorlagen und fragt nach Nummer oder Name.
+Nichtinteraktive Aufrufe müssen den Namen angeben. `{{SSID}}` ist optional und wird
+HTML-escaped eingesetzt. Die Vorlagen bleiben installiert; bei jedem AP-Start
+wird eine Momentaufnahme der ausgewählten Dateien erstellt. Vorlagen mit sudo
+bearbeiten/ergänzen. `--status` zeigt den gewählten Namen sowie Vorlagen- und
+Laufzeitverzeichnisse. Auf einem portablen Kali-Host liefert ein eigener temporärer
+Webdienst HTTP an derselben Adresse aus; Pi4 behält seinen isolierten nginx-Dienst.
+Das Steuer-WLAN liefert weiterhin Guacamole aus.
+
+HTTP `http://10.79.0.1/` ist der Portaleinstieg. HTTPS `https://pi4/` verwendet das
+bestehende Pi4-Zertifikat und benötigt deshalb das vorhandene Vertrauen in die
+Pi4-CA. HTTPS-Anfragen an fremde Domains werden weder nachgeahmt noch abgefangen.
+Das Betriebssystem entscheidet, ob es sein Captive-Portal-Fenster öffnet. Wenn
+kein Fenster erscheint, die HTTP-Adresse direkt öffnen. Übliche Hostnamen für
+Verbindungsprüfungen führen zum Portal.
+
+Vor einer Adapteränderung werden das feste zusätzliche Subnetz und die
+Transitverbindung auf Konflikte geprüft. Ein fehlgeschlagener Start versucht, die
+vorherige Clientverbindung wiederherzustellen. Ein Dienstfehler stoppt die
+Namespace-Dienste. Kein Dienst wird für den Boot aktiviert; der gesamte aktive
+AP-Zustand liegt unter `/run`.
+
+Hardwareabnahme ist von isolierten Tests getrennt: AP-Unterstützung, Anmeldung,
+Client-Isolation, Captive-Fenster und USB-Abziehen/Wiedereinstecken müssen an
+echten Adaptern und Endgeräten geprüft werden.
+
+<div align="center">
+
+[![Nach oben](https://img.shields.io/badge/⬆_Nach_oben-24292f?style=for-the-badge)](#top)
+
+</div>
+
+---
+
+<a id="english"></a>
+
 # Additional USB welcome AP
 
 `sudo auto share ap "SSID" [--interface IFACE] [--template NAME]` starts or renames one optional,
@@ -68,3 +168,9 @@ enabled at boot, and all active AP state lives under `/run`.
 Hardware acceptance is separate from isolated tests: AP support, association,
 client-to-client isolation, captive-window behavior and USB unplug/replug must
 be checked on actual adapters/devices.
+
+<div align="center">
+
+[![Back to top](https://img.shields.io/badge/⬆_Back_to_top-24292f?style=for-the-badge)](#top)
+
+</div>
